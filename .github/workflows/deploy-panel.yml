@@ -2,7 +2,7 @@ name: Deploy panel (GitHub Pages)
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - "Panel/**"
       - ".github/workflows/deploy-panel.yml"
