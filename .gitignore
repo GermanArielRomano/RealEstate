@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+Api/uploads/
+release/
+# Secretos: jamás al repositorio
+appsettings.Development.json
+appsettings.Local.json
+.env

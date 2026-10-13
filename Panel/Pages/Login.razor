@@ -1,0 +1,81 @@
+@page "/login"
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Iniciar sesión</PageTitle>
+
+<MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="min-height:70vh">
+    <MudStack Style="width:100%; max-width:400px" Spacing="6">
+
+        <MudStack Spacing="1" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.h3">🏠</MudText>
+            <MudText Typo="Typo.h5" Style="font-weight:600">Bienvenido</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">Ingresa con la cuenta de tu inmobiliaria</MudText>
+        </MudStack>
+
+        <MudPaper Outlined="true" Elevation="0" Class="pa-8">
+            @if (error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="mb-4">@error</MudAlert>
+            }
+
+            <EditForm Model="model" OnValidSubmit="SubmitAsync">
+                <DataAnnotationsValidator />
+                <MudStack Spacing="3">
+                    <MudTextField @bind-Value="model.Email" For="() => model.Email" Label="Correo"
+                                  InputType="InputType.Email" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="model.Password" For="() => model.Password" Label="Contraseña"
+                                  InputType="InputType.Password" Variant="Variant.Outlined" />
+
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                               Size="Size.Large" FullWidth="true" Disabled="@busy" Class="mt-2">
+                        @if (busy)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                        }
+                        Ingresar
+                    </MudButton>
+
+                    @if (busy)
+                    {
+                        <MudText Typo="Typo.caption" Align="Align.Center" Class="mud-text-secondary">
+                            Conectando… si el servidor estaba inactivo puede tardar hasta 1 minuto.
+                        </MudText>
+                    }
+                </MudStack>
+            </EditForm>
+        </MudPaper>
+    </MudStack>
+</MudStack>
+
+@code {
+    private readonly LoginForm model = new();
+    private bool busy;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+            Nav.NavigateTo("", replace: true);
+    }
+
+    private async Task SubmitAsync()
+    {
+        busy = true;
+        error = null;
+        try
+        {
+            await Auth.LoginAsync(model.Email.Trim(), model.Password);
+            Nav.NavigateTo("", replace: true);   // Index redirige según el rol
+        }
+        catch (ApiException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

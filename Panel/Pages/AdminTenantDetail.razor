@@ -1,0 +1,199 @@
+@page "/admin/tenants/{Id:guid}"
+@attribute [Authorize(Roles = "SuperAdmin")]
+@inject ApiClient Api
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@inject IJSRuntime JS
+
+<PageTitle>Gestionar inmobiliaria</PageTitle>
+
+<MudStack Spacing="8">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack" Href="admin/tenants" aria-label="Volver" />
+        <div>
+            <MudText Typo="Typo.h4" Style="font-weight:600">@(tenant?.Name ?? "Inmobiliaria")</MudText>
+            @if (tenant is not null)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @tenant.Slug · @tenant.PropertyCount propiedades · alta @Catalog.Date(tenant.CreatedAt)
+                </MudText>
+            }
+        </div>
+    </MudStack>
+
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@error</MudAlert>
+    }
+
+    @if (loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Class="py-16"><MudProgressCircular Indeterminate="true" /></MudStack>
+    }
+    else if (tenant is not null)
+    {
+        <MudGrid Spacing="4">
+
+            <MudItem xs="12" md="5">
+                <MudPaper Outlined="true" Elevation="0" Class="pa-6">
+                    <EditForm Model="form" OnValidSubmit="SaveAsync">
+                        <DataAnnotationsValidator />
+                        <MudText Typo="Typo.h6" Class="mb-4">Datos</MudText>
+                        <MudStack Spacing="3">
+                            <MudTextField @bind-Value="form.Name" For="() => form.Name" Label="Nombre" Variant="Variant.Outlined" />
+                            <MudTextField @bind-Value="form.TaxId" For="() => form.TaxId" Label="CUIT" Variant="Variant.Outlined" />
+                            <MudSelect T="string" @bind-Value="form.Plan" Label="Plan" Variant="Variant.Outlined">
+                                @foreach (var p in Catalog.Plans) { <MudSelectItem T="string" Value="@p.Value">@p.Label</MudSelectItem> }
+                            </MudSelect>
+                            <MudSwitch T="bool" @bind-Value="form.IsActive" Color="Color.Success"
+                                       Label="Activa (puede iniciar sesión y publicar)" />
+                            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Disabled="@saving">
+                                @if (saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" /> }
+                                Guardar cambios
+                            </MudButton>
+                        </MudStack>
+                    </EditForm>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="7">
+                <MudStack Spacing="3">
+                    <MudText Typo="Typo.h6">Usuarios</MudText>
+
+                    @if (resetInfo is not null)
+                    {
+                        <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" ShowCloseIcon="true" CloseIconClicked="() => resetInfo = null">
+                            Nueva contraseña de <b>@resetInfo.Email</b>:
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <code>@resetInfo.Password</code>
+                                <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small" aria-label="Copiar"
+                                               OnClick="() => CopyAsync(resetInfo.Password)" />
+                            </MudStack>
+                            <MudText Typo="Typo.caption">No se vuelve a mostrar.</MudText>
+                        </MudAlert>
+                    }
+
+                    <MudTable T="TenantUser" Items="users" Hover="true" Outlined="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+                        <HeaderContent>
+                            <MudTh>Usuario</MudTh><MudTh>Rol</MudTh><MudTh>Estado</MudTh><MudTh></MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Usuario">
+                                <MudText Style="font-weight:600">@context.FullName</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Email</MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Rol">@context.Role</MudTd>
+                            <MudTd DataLabel="Estado">
+                                <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
+                                    @(context.IsActive ? "Activo" : "Inactivo")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd Style="text-align:right; white-space:nowrap">
+                                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => ResetPasswordAsync(context)">Resetear clave</MudButton>
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Color="@(context.IsActive ? Color.Error : Color.Success)"
+                                           OnClick="() => ToggleUserAsync(context)">
+                                    @(context.IsActive ? "Desactivar" : "Activar")
+                                </MudButton>
+                            </MudTd>
+                        </RowTemplate>
+                        <NoRecordsContent>
+                            <MudText Class="pa-8 mud-text-secondary">Esta inmobiliaria no tiene usuarios.</MudText>
+                        </NoRecordsContent>
+                    </MudTable>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    }
+</MudStack>
+
+@code {
+    private sealed record Reset(string Email, string Password);
+
+    [Parameter] public Guid Id { get; set; }
+
+    private TenantItem? tenant;
+    private TenantEditForm form = new();
+    private List<TenantUser> users = [];
+    private Reset? resetInfo;
+    private bool loading = true, saving;
+    private string? error;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            tenant = await Api.GetTenantAsync(Id);
+            form = new TenantEditForm { Name = tenant.Name, TaxId = tenant.TaxId, Plan = tenant.Plan, IsActive = tenant.IsActive };
+            users = await Api.ListTenantUsersAsync(Id);
+        }
+        catch (ApiException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task CopyAsync(string text)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        Snackbar.Add("Copiado al portapapeles.", Severity.Info);
+    }
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        try
+        {
+            tenant = await Api.UpdateTenantAsync(Id, form);
+            Snackbar.Add("Cambios guardados.", Severity.Success);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task ResetPasswordAsync(TenantUser u)
+    {
+        var ok = await Dialogs.ShowMessageBox("Resetear contraseña",
+            $"Se generará una contraseña nueva para {u.Email}. La actual dejará de funcionar.",
+            yesText: "Resetear", cancelText: "Cancelar");
+        if (ok != true) return;
+
+        try
+        {
+            var password = PasswordGenerator.Generate();
+            await Api.ResetPasswordAsync(u.Id, password);
+            resetInfo = new Reset(u.Email, password);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ToggleUserAsync(TenantUser u)
+    {
+        try
+        {
+            await Api.SetUserActiveAsync(u.Id, !u.IsActive);
+            users = await Api.ListTenantUsersAsync(Id);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

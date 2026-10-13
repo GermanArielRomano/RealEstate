@@ -1,0 +1,68 @@
+@page "/account"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthService Auth
+@inject ISnackbar Snackbar
+
+<PageTitle>Mi cuenta</PageTitle>
+
+<MudStack Spacing="8" Style="max-width:520px">
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+        <MudAvatar Color="Color.Primary" Size="Size.Large">@Initials</MudAvatar>
+        <div>
+            <MudText Typo="Typo.h5" Style="font-weight:600">@Auth.User?.FullName</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @Auth.User?.Email · @(Auth.User?.TenantName ?? "SuperAdmin")
+            </MudText>
+        </div>
+    </MudStack>
+
+    <MudPaper Outlined="true" Elevation="0" Class="pa-6">
+        <EditForm Model="form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <MudText Typo="Typo.h6" Class="mb-4">Cambiar contraseña</MudText>
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="form.CurrentPassword" For="() => form.CurrentPassword" Label="Contraseña actual"
+                              InputType="InputType.Password" Variant="Variant.Outlined" />
+                <MudTextField @bind-Value="form.NewPassword" For="() => form.NewPassword" Label="Nueva contraseña"
+                              InputType="InputType.Password" Variant="Variant.Outlined"
+                              HelperText="Mínimo 8 caracteres, con mayúscula, minúscula y número." />
+                <MudTextField @bind-Value="form.Confirm" For="() => form.Confirm" Label="Repetir nueva contraseña"
+                              InputType="InputType.Password" Variant="Variant.Outlined" />
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Disabled="@saving">
+                    @if (saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" /> }
+                    Guardar contraseña
+                </MudButton>
+            </MudStack>
+        </EditForm>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private ChangePasswordForm form = new();
+    private bool saving;
+
+    private string Initials => string.Concat(
+        (Auth.User?.FullName ?? "?").Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2).Select(w => char.ToUpperInvariant(w[0])));
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        try
+        {
+            await Api.ChangePasswordAsync(form);
+            form = new ChangePasswordForm();
+            Snackbar.Add("Contraseña actualizada.", Severity.Success);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

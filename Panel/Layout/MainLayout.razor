@@ -1,0 +1,130 @@
+@inherits LayoutComponentBase
+@inject AuthService Auth
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<MudThemeProvider Theme="_theme" @bind-IsDarkMode="_isDark" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Class="px-2 px-sm-6" Style="border-bottom: 1px solid var(--mud-palette-lines-default);">
+        <MudLink Href="" Underline="Underline.None" Color="Color.Inherit" Style="font-size:1.1rem; font-weight:600">
+            🏠 Inmobiliarias
+        </MudLink>
+
+        <AuthorizeView>
+            <Authorized>
+                <MudStack Row="true" Spacing="1" Class="ms-6">
+                    <AuthorizeView Roles="SuperAdmin" Context="sa">
+                        <MudButton Href="admin/tenants" Variant="Variant.Text" Color="Color.Inherit">Inmobiliarias</MudButton>
+                    </AuthorizeView>
+                    <AuthorizeView Roles="TenantAdmin,Agent" Context="socio">
+                        <MudButton Href="properties" Variant="Variant.Text" Color="Color.Inherit">Propiedades</MudButton>
+                    </AuthorizeView>
+                </MudStack>
+            </Authorized>
+        </AuthorizeView>
+
+        <MudSpacer />
+
+        <MudIconButton Icon="@(_isDark ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)"
+                       Color="Color.Inherit" OnClick="ToggleThemeAsync" aria-label="Cambiar tema" />
+
+        <AuthorizeView>
+            <Authorized>
+                <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Class="ms-2">
+                    <ActivatorContent>
+                        <MudAvatar Size="Size.Small" Color="Color.Primary" Style="cursor:pointer">@Initials</MudAvatar>
+                    </ActivatorContent>
+                    <ChildContent>
+                        <div class="px-4 py-3">
+                            <MudText Typo="Typo.subtitle2">@Auth.User?.FullName</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@(Auth.User?.TenantName ?? "SuperAdmin")</MudText>
+                        </div>
+                        <MudDivider />
+                        <MudMenuItem Href="account">Mi cuenta</MudMenuItem>
+                        <MudMenuItem OnClick="LogoutAsync">Salir</MudMenuItem>
+                    </ChildContent>
+                </MudMenu>
+            </Authorized>
+        </AuthorizeView>
+    </MudAppBar>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="py-10 px-4 px-sm-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private const string ThemeKey = "re_theme";
+    private bool _isDark = true;   // oscuro por defecto
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#3B6FE0",
+            Background = "#F7F8FA",
+            Surface = "#FFFFFF",
+            AppbarBackground = "#F7F8FA",
+            AppbarText = "#1B1D21",
+            TextPrimary = "#1B1D21",
+            TextSecondary = "#6B7078",
+            LinesDefault = "#E4E6EA",
+            Divider = "#E4E6EA"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#7BA4FF",
+            Background = "#0E1013",
+            Surface = "#16181D",
+            AppbarBackground = "#0E1013",
+            AppbarText = "#E8EAED",
+            DrawerBackground = "#0E1013",
+            TextPrimary = "#E8EAED",
+            TextSecondary = "#9AA0A6",
+            LinesDefault = "#262A31",
+            Divider = "#262A31"
+        },
+        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "12px" },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = ["Inter", "system-ui", "sans-serif"] }
+        }
+    };
+
+    private string Initials => string.Concat(
+        (Auth.User?.FullName ?? "?").Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Take(2).Select(w => char.ToUpperInvariant(w[0])));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var saved = await JS.InvokeAsync<string?>("localStorage.getItem", ThemeKey);
+        _isDark = saved != "light";
+        await ApplyBootstrapThemeAsync();
+        StateHasChanged();
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        _isDark = !_isDark;
+        await JS.InvokeVoidAsync("localStorage.setItem", ThemeKey, _isDark ? "dark" : "light");
+        await ApplyBootstrapThemeAsync();
+    }
+
+    // Mientras queden páginas con Bootstrap, se les aplica también su modo oscuro
+    private ValueTask ApplyBootstrapThemeAsync() =>
+        JS.InvokeVoidAsync("document.documentElement.setAttribute", "data-bs-theme", _isDark ? "dark" : "light");
+
+    private async Task LogoutAsync()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("login");
+    }
+}

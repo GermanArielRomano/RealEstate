@@ -1,0 +1,10 @@
+@page "/"
+@attribute [Authorize]
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+@code {
+    // SuperAdmin => gestión de inmobiliarias; socio (TenantAdmin/Agent) => sus propiedades
+    protected override void OnInitialized() =>
+        Nav.NavigateTo(Auth.IsSuperAdmin ? "admin/tenants" : "properties", replace: true);
+}

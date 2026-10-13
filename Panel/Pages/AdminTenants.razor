@@ -1,0 +1,211 @@
+@page "/admin/tenants"
+@attribute [Authorize(Roles = "SuperAdmin")]
+@inject ApiClient Api
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@inject IJSRuntime JS
+
+<PageTitle>Inmobiliarias</PageTitle>
+
+<MudStack Spacing="8">
+
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4" Style="font-weight:600">Inmobiliarias</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@tenants.Count socios en la plataforma</MudText>
+        </div>
+        <MudButton Variant="@(showForm ? Variant.Outlined : Variant.Filled)" Color="Color.Primary" Size="Size.Large"
+                   StartIcon="@(showForm ? Icons.Material.Filled.Close : Icons.Material.Filled.Add)"
+                   OnClick="() => showForm = !showForm">
+            @(showForm ? "Cancelar" : "Nueva inmobiliaria")
+        </MudButton>
+    </MudStack>
+
+    @if (credentials is not null)
+    {
+        <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" ShowCloseIcon="true" CloseIconClicked="() => credentials = null">
+            <MudText><b>@credentials.Tenant</b> creada. Entrega estas credenciales al socio; la contraseña no se vuelve a mostrar.</MudText>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-2">
+                <code>@credentials.Email</code> · <code>@credentials.Password</code>
+                <MudIconButton Icon="@Icons.Material.Outlined.ContentCopy" Size="Size.Small" aria-label="Copiar"
+                               OnClick="CopyCredentialsAsync" />
+            </MudStack>
+        </MudAlert>
+    }
+
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                <span>@error</span>
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Reintentar</MudButton>
+            </MudStack>
+        </MudAlert>
+    }
+
+    <MudCollapse Expanded="showForm">
+        <MudPaper Outlined="true" Elevation="0" Class="pa-6">
+            <EditForm Model="form" OnValidSubmit="CreateAsync">
+                <DataAnnotationsValidator />
+                <MudText Typo="Typo.h6" Class="mb-4">Nueva inmobiliaria</MudText>
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" sm="5">
+                        <MudTextField @bind-Value="form.Name" For="() => form.Name" Label="Nombre" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="form.TaxId" For="() => form.TaxId" Label="CUIT (opcional)" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="3">
+                        <MudSelect T="string" @bind-Value="form.Plan" Label="Plan" Variant="Variant.Outlined">
+                            @foreach (var p in Catalog.Plans) { <MudSelectItem T="string" Value="@p.Value">@p.Label</MudSelectItem> }
+                        </MudSelect>
+                    </MudItem>
+
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Usuario administrador del socio (rol TenantAdmin)</MudText>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="form.AdminFullName" For="() => form.AdminFullName" Label="Responsable" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="form.AdminEmail" For="() => form.AdminEmail" Label="Correo" InputType="InputType.Email" Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="form.AdminPassword" For="() => form.AdminPassword" Label="Contraseña inicial" Variant="Variant.Outlined"
+                                      Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Outlined.AutoFixHigh"
+                                      AdornmentAriaLabel="Generar contraseña" OnAdornmentClick="GeneratePassword" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Class="mt-6" Disabled="@saving">
+                    @if (saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" /> }
+                    Crear inmobiliaria
+                </MudButton>
+            </EditForm>
+        </MudPaper>
+    </MudCollapse>
+
+    <MudTable T="TenantItem" Items="tenants" Hover="true" Outlined="true" Elevation="0"
+              Breakpoint="Breakpoint.Sm" Loading="loading" LoadingProgressColor="Color.Primary">
+        <HeaderContent>
+            <MudTh>Inmobiliaria</MudTh>
+            <MudTh>Plan</MudTh>
+            <MudTh>Estado</MudTh>
+            <MudTh Style="text-align:right">Propiedades</MudTh>
+            <MudTh Style="text-align:right">Usuarios</MudTh>
+            <MudTh>Alta</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Inmobiliaria">
+                <MudLink Href="@($"admin/tenants/{context.Id}")" Underline="Underline.None" Color="Color.Inherit" Style="font-weight:600">@context.Name</MudLink>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Slug</MudText>
+            </MudTd>
+            <MudTd DataLabel="Plan"><MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@context.Plan</MudChip></MudTd>
+            <MudTd DataLabel="Estado">
+                <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
+                    @(context.IsActive ? "Activa" : "Desactivada")
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Propiedades" Style="text-align:right">@context.PropertyCount</MudTd>
+            <MudTd DataLabel="Usuarios" Style="text-align:right">@context.UserCount</MudTd>
+            <MudTd DataLabel="Alta">@Catalog.Date(context.CreatedAt)</MudTd>
+            <MudTd Style="text-align:right; white-space:nowrap">
+                <MudButton Href="@($"admin/tenants/{context.Id}")" Variant="Variant.Text" Size="Size.Small">Gestionar</MudButton>
+                <MudButton Variant="Variant.Text" Size="Size.Small" Color="@(context.IsActive ? Color.Error : Color.Success)"
+                           OnClick="() => ToggleActiveAsync(context)">
+                    @(context.IsActive ? "Desactivar" : "Activar")
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="pa-8 mud-text-secondary">Todavía no hay inmobiliarias registradas.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudStack>
+
+@code {
+    private sealed record Credentials(string Tenant, string Email, string Password);
+
+    private NewTenantForm form = new();
+    private List<TenantItem> tenants = [];
+    private Credentials? credentials;
+    private bool loading = true, saving, showForm;
+    private string? error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            tenants = await Api.ListTenantsAsync();
+        }
+        catch (ApiException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void GeneratePassword() => form.AdminPassword = PasswordGenerator.Generate();
+
+    private Task CopyCredentialsAsync() => CopyAsync($"{credentials!.Email} / {credentials.Password}");
+
+    private async Task CopyAsync(string text)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        Snackbar.Add("Copiado al portapapeles.", Severity.Info);
+    }
+
+    private async Task CreateAsync()
+    {
+        saving = true;
+        credentials = null;
+        try
+        {
+            var created = await Api.CreateTenantAsync(form);
+            credentials = new Credentials(created.Tenant.Name, form.AdminEmail.Trim(), form.AdminPassword);
+            form = new NewTenantForm();
+            showForm = false;
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task ToggleActiveAsync(TenantItem t)
+    {
+        if (t.IsActive)
+        {
+            var ok = await Dialogs.ShowMessageBox("Desactivar inmobiliaria",
+                $"{t.Name} y sus usuarios no podrán iniciar sesión ni publicar. Podrás reactivarla cuando quieras.",
+                yesText: "Desactivar", cancelText: "Cancelar");
+            if (ok != true) return;
+        }
+
+        try
+        {
+            await Api.UpdateTenantAsync(t.Id, new TenantEditForm
+            {
+                Name = t.Name, TaxId = t.TaxId, Plan = t.Plan, IsActive = !t.IsActive
+            });
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

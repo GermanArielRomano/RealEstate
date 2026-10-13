@@ -1,0 +1,24 @@
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        <RedirectToLogin />
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="ma-6">No tienes permiso para ver esta página.</MudAlert>
+                    }
+                </NotAuthorized>
+                <Authorizing>
+                    <MudProgressLinear Indeterminate="true" />
+                </Authorizing>
+            </AuthorizeRouteView>
+        </Found>
+        <NotFound>
+            <MudText Class="pa-6">Página no encontrada.</MudText>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

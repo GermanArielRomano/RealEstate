@@ -1,0 +1,248 @@
+@page "/properties"
+@attribute [Authorize(Roles = "TenantAdmin,Agent")]
+@inject ApiClient Api
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>Propiedades</PageTitle>
+
+<MudStack Spacing="8">
+
+    <!-- Encabezado -->
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4" Style="font-weight:600">Propiedades</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @(result is null ? "Tu cartera de publicaciones" : $"{result.TotalCount} publicaciones")
+            </MudText>
+        </div>
+        <MudButton Href="properties/new" Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                   StartIcon="@Icons.Material.Filled.Add">Nueva propiedad</MudButton>
+    </MudStack>
+
+    <!-- Filtros -->
+    <MudGrid Spacing="2">
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="filter.Search" Placeholder="Buscar por título, código o calle"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          Immediate="true" DebounceInterval="500" OnDebounceIntervalElapsed="SearchAsync"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudSelect T="string" @bind-Value="filter.Status" @bind-Value:after="SearchAsync" Label="Estado"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                @foreach (var s in Catalog.Statuses)
+                {
+                    <MudSelectItem T="string" Value="@s.Value">@s.Label</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" md="3">
+            <MudSelect T="string" @bind-Value="filter.Operation" @bind-Value:after="SearchAsync" Label="Operación"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                @foreach (var o in Catalog.Operations)
+                {
+                    <MudSelectItem T="string" Value="@o.Value">@o.Label</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+    </MudGrid>
+
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                <span>@error</span>
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Reintentar</MudButton>
+            </MudStack>
+        </MudAlert>
+    }
+
+    @if (loading)
+    {
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+            Cargando… si el servidor estaba inactivo puede tardar hasta 1 minuto.
+        </MudText>
+        <MudGrid Spacing="4">
+            @for (var i = 0; i < 6; i++)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="330px" Style="border-radius:12px" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else if (error is null && (result is null || result.Items.Count == 0))
+    {
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="py-16">
+            <MudIcon Icon="@Icons.Material.Outlined.HomeWork" Style="font-size:4rem" Class="mud-text-secondary" />
+            <MudText Typo="Typo.h6">@(HasFilters ? "Sin resultados" : "Todavía no hay propiedades")</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @(HasFilters ? "Prueba con otros filtros." : "Crea la primera para empezar a publicarla.")
+            </MudText>
+            @if (HasFilters)
+            {
+                <MudButton Variant="Variant.Text" OnClick="ClearFiltersAsync">Limpiar filtros</MudButton>
+            }
+            else
+            {
+                <MudButton Href="properties/new" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2">Nueva propiedad</MudButton>
+            }
+        </MudStack>
+    }
+    else if (result is not null)
+    {
+        <MudGrid Spacing="4">
+            @foreach (var p in result.Items)
+            {
+                <MudItem xs="12" sm="6" md="4" Class="d-flex">
+                    <MudCard Outlined="true" Elevation="0" Class="w-100 d-flex flex-column">
+
+                        <!-- Foto + etiquetas -->
+                        <div style="position:relative">
+                            @if (p.CoverThumbnailUrl is not null)
+                            {
+                                <MudCardMedia Image="@p.CoverThumbnailUrl" Height="190" />
+                            }
+                            else
+                            {
+                                <div class="d-flex align-center justify-center" style="height:190px; background: var(--mud-palette-background-gray)">
+                                    <MudIcon Icon="@Icons.Material.Outlined.HomeWork" Style="font-size:3rem" Class="mud-text-secondary" />
+                                </div>
+                            }
+                            <MudChip T="string" Size="Size.Small" Color="Color.Dark" Style="position:absolute; top:12px; left:12px">
+                                @Catalog.Label(Catalog.Operations, p.Operation)
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="@StatusColor(p.Status)" Style="position:absolute; top:12px; right:12px">
+                                @Catalog.Label(Catalog.Statuses, p.Status)
+                            </MudChip>
+                        </div>
+
+                        <MudCardContent Class="pa-5 flex-grow-1">
+                            <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight:600">
+                                @Catalog.Price(p.Price, p.Currency)
+                            </MudText>
+                            <MudText Typo="Typo.body1" Class="mt-1"
+                                     Style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:3em">
+                                @p.Title
+                            </MudText>
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mt-3 mud-text-secondary">
+                                <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />
+                                <MudText Typo="Typo.body2">@p.City · @Catalog.Label(Catalog.Types, p.Type)</MudText>
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">@Specs(p) · <code>@p.Code</code></MudText>
+                        </MudCardContent>
+
+                        <MudDivider />
+                        <MudCardActions Class="px-4 py-2">
+                            <MudButton Href="@($"properties/{p.Id}")" Variant="Variant.Text"
+                                       StartIcon="@Icons.Material.Outlined.Edit">Editar</MudButton>
+                            <MudSpacer />
+                            <MudIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Size="Size.Small"
+                                           OnClick="() => DeleteAsync(p)" aria-label="Eliminar" />
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+
+        @if (result.TotalPages > 1)
+        {
+            <MudStack AlignItems="AlignItems.Center">
+                <MudPagination Count="result.TotalPages" Selected="filter.Page" SelectedChanged="GoToAsync"
+                               Variant="Variant.Text" Color="Color.Primary" />
+            </MudStack>
+        }
+    }
+</MudStack>
+
+@code {
+    private readonly PropertyFilter filter = new() { PageSize = 9 };
+    private PagedResult<PropertyListItem>? result;
+    private bool loading = true;
+    private string? error;
+
+    private bool HasFilters =>
+        !string.IsNullOrWhiteSpace(filter.Search) ||
+        !string.IsNullOrWhiteSpace(filter.Status) ||
+        !string.IsNullOrWhiteSpace(filter.Operation);
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            result = await Api.ListPropertiesAsync(filter);
+        }
+        catch (ApiException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private Task SearchAsync()
+    {
+        filter.Page = 1;
+        return LoadAsync();
+    }
+
+    private Task GoToAsync(int page)
+    {
+        filter.Page = page;
+        return LoadAsync();
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        filter.Search = null;
+        filter.Status = null;
+        filter.Operation = null;
+        return SearchAsync();
+    }
+
+    private async Task DeleteAsync(PropertyListItem p)
+    {
+        var confirmed = await Dialogs.ShowMessageBox(
+            "Eliminar propiedad",
+            $"¿Eliminar {p.Code} · {p.Title}? Dejará de mostrarse en el panel y en la app.",
+            yesText: "Eliminar", cancelText: "Cancelar");
+
+        if (confirmed != true) return;
+
+        try
+        {
+            await Api.DeletePropertyAsync(p.Id);
+            Snackbar.Add("Propiedad eliminada.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Available" => Color.Success,
+        "Reserved" => Color.Warning,
+        "Sold" or "Rented" => Color.Info,
+        "Withdrawn" => Color.Dark,
+        _ => Color.Default
+    };
+
+    private static string Specs(PropertyListItem p)
+    {
+        var parts = new List<string>(3);
+        if (p.Bedrooms > 0) parts.Add($"{p.Bedrooms} dorm.");
+        if (p.Bathrooms > 0) parts.Add($"{p.Bathrooms} baños");
+        if (p.AreaM2 > 0) parts.Add($"{p.AreaM2:0.#} m²");
+        return parts.Count > 0 ? string.Join(" · ", parts) : "Sin detalles";
+    }
+}

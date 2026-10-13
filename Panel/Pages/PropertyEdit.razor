@@ -1,0 +1,370 @@
+@page "/properties/new"
+@page "/properties/{Id:guid}"
+@attribute [Authorize(Roles = "TenantAdmin,Agent")]
+@inject ApiClient Api
+@inject NavigationManager Nav
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+<PageTitle>@(Id is null ? "Nueva propiedad" : "Editar propiedad")</PageTitle>
+
+<MudStack Spacing="8">
+
+    <!-- Encabezado -->
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack" Href="properties" aria-label="Volver" />
+        <div>
+            <MudText Typo="Typo.h4" Style="font-weight:600">@(Id is null ? "Nueva propiedad" : "Editar propiedad")</MudText>
+            @if (Id is not null)
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Código @form.Code</MudText>
+            }
+        </div>
+    </MudStack>
+
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@error</MudAlert>
+    }
+
+    @if (loading)
+    {
+        <MudStack AlignItems="AlignItems.Center" Class="py-16"><MudProgressCircular Indeterminate="true" /></MudStack>
+    }
+    else
+    {
+        <EditForm Model="form" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+            <MudGrid Spacing="4">
+
+                <MudItem xs="12" md="8">
+                    <MudStack Spacing="4">
+
+                        <MudPaper Outlined="true" Elevation="0" Class="pa-6">
+                            <MudText Typo="Typo.h6" Class="mb-4">Información</MudText>
+                            <MudGrid Spacing="3">
+                                <MudItem xs="12" sm="4">
+                                    <MudTextField @bind-Value="form.Code" For="() => form.Code" Label="Código" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" sm="8">
+                                    <MudTextField @bind-Value="form.Title" For="() => form.Title" Label="Título" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12">
+                                    <MudTextField @bind-Value="form.Description" For="() => form.Description" Label="Descripción"
+                                                  Variant="Variant.Outlined" Lines="5" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+
+                        <MudPaper Outlined="true" Elevation="0" Class="pa-6">
+                            <MudText Typo="Typo.h6" Class="mb-4">Operación y precio</MudText>
+                            <MudGrid Spacing="3">
+                                <MudItem xs="12" sm="6">
+                                    <MudSelect T="string" @bind-Value="form.Operation" Label="Operación" Variant="Variant.Outlined">
+                                        @foreach (var o in Catalog.Operations) { <MudSelectItem T="string" Value="@o.Value">@o.Label</MudSelectItem> }
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudSelect T="string" @bind-Value="form.Type" Label="Tipo de propiedad" Variant="Variant.Outlined">
+                                        @foreach (var t in Catalog.Types) { <MudSelectItem T="string" Value="@t.Value">@t.Label</MudSelectItem> }
+                                    </MudSelect>
+                                </MudItem>
+                                <MudItem xs="12" sm="8">
+                                    <MudNumericField @bind-Value="form.Price" For="() => form.Price" Label="Precio"
+                                                     Variant="Variant.Outlined" Min="0m" HideSpinButtons="true" />
+                                </MudItem>
+                                <MudItem xs="12" sm="4">
+                                    <MudSelect T="string" @bind-Value="form.Currency" Label="Moneda" Variant="Variant.Outlined">
+                                        @foreach (var c in Catalog.Currencies) { <MudSelectItem T="string" Value="@c.Value">@c.Label</MudSelectItem> }
+                                    </MudSelect>
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+
+                        <MudPaper Outlined="true" Elevation="0" Class="pa-6">
+                            <MudText Typo="Typo.h6" Class="mb-4">Características</MudText>
+                            <MudGrid Spacing="3">
+                                <MudItem xs="6" sm="4">
+                                    <MudNumericField @bind-Value="form.Bedrooms" For="() => form.Bedrooms" Label="Dormitorios"
+                                                     Variant="Variant.Outlined" Min="0" Max="50" HideSpinButtons="true" />
+                                </MudItem>
+                                <MudItem xs="6" sm="4">
+                                    <MudNumericField @bind-Value="form.Bathrooms" For="() => form.Bathrooms" Label="Baños"
+                                                     Variant="Variant.Outlined" Min="0" Max="50" HideSpinButtons="true" />
+                                </MudItem>
+                                <MudItem xs="12" sm="4">
+                                    <MudNumericField @bind-Value="form.AreaM2" For="() => form.AreaM2" Label="Superficie (m²)"
+                                                     Variant="Variant.Outlined" Min="0m" HideSpinButtons="true" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+
+                        <MudPaper Outlined="true" Elevation="0" Class="pa-6">
+                            <MudText Typo="Typo.h6" Class="mb-4">Ubicación</MudText>
+                            <MudGrid Spacing="3">
+                                <MudItem xs="12">
+                                    <MudTextField @bind-Value="form.Street" For="() => form.Street" Label="Calle y número" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudTextField @bind-Value="form.City" For="() => form.City" Label="Ciudad" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudTextField @bind-Value="form.Province" For="() => form.Province" Label="Provincia" Variant="Variant.Outlined" />
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudNumericField @bind-Value="form.Latitude" For="() => form.Latitude" Label="Latitud (opcional)"
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" />
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudNumericField @bind-Value="form.Longitude" For="() => form.Longitude" Label="Longitud (opcional)"
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" />
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+                    </MudStack>
+                </MudItem>
+
+                <!-- Panel lateral fijo: estado y guardar -->
+                <MudItem xs="12" md="4">
+                    <MudPaper Outlined="true" Elevation="0" Class="pa-6" Style="position:sticky; top:88px">
+                        <MudText Typo="Typo.h6" Class="mb-4">Publicación</MudText>
+                        <MudSelect T="string" @bind-Value="form.Status" Label="Estado" Variant="Variant.Outlined">
+                            @foreach (var s in Catalog.Statuses) { <MudSelectItem T="string" Value="@s.Value">@s.Label</MudSelectItem> }
+                        </MudSelect>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2 d-block">
+                            Solo las propiedades <b>Disponibles</b> se muestran en la app móvil.
+                        </MudText>
+
+                        <MudStack Spacing="2" Class="mt-6">
+                            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                                       Size="Size.Large" FullWidth="true" Disabled="@saving">
+                                @if (saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" /> }
+                                @(Id is null ? "Crear propiedad" : "Guardar cambios")
+                            </MudButton>
+                            <MudButton Href="properties" Variant="Variant.Text" FullWidth="true">Cancelar</MudButton>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        </EditForm>
+
+        <!-- Fotos -->
+        @if (detail is not null)
+        {
+            <MudPaper Outlined="true" Elevation="0" Class="pa-6">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="3" Class="mb-4">
+                    <div>
+                        <MudText Typo="Typo.h6">Fotos <span class="mud-text-secondary">(@detail.Images.Count)</span></MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            JPEG, PNG o WebP · hasta @MaxFiles por vez · @(MaxFileSize / 1024 / 1024) MB cada una · se optimizan automáticamente
+                        </MudText>
+                    </div>
+
+                    <InputFile id="photoInput" OnChange="UploadAsync" multiple accept="image/jpeg,image/png,image/webp" hidden />
+                    <MudButton HtmlTag="label" for="photoInput" Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Outlined.AddPhotoAlternate" Disabled="@uploading">
+                        Agregar fotos
+                    </MudButton>
+                </MudStack>
+
+                @if (uploading)
+                {
+                    <MudProgressLinear Indeterminate="true" Class="mb-4" />
+                }
+
+                @if (uploadResult is { Failed.Count: > 0 })
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+                        @foreach (var f in uploadResult.Failed)
+                        {
+                            <div><b>@f.FileName</b>: @f.Reason</div>
+                        }
+                    </MudAlert>
+                }
+
+                @if (detail.Images.Count == 0)
+                {
+                    <MudStack AlignItems="AlignItems.Center" Class="py-10 mud-text-secondary">
+                        <MudIcon Icon="@Icons.Material.Outlined.PhotoLibrary" Style="font-size:3rem" />
+                        <MudText Typo="Typo.body2">Todavía no hay fotos. La primera que subas será la portada.</MudText>
+                    </MudStack>
+                }
+                else
+                {
+                    <MudGrid Spacing="3">
+                        @foreach (var img in detail.Images.OrderBy(i => i.SortOrder))
+                        {
+                            <MudItem xs="6" sm="4" md="3">
+                                <MudCard Outlined="true" Elevation="0">
+                                    <div style="position:relative">
+                                        <MudCardMedia Image="@img.ThumbnailUrl" Height="140" />
+                                        @if (img.IsCover)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="position:absolute; top:8px; left:8px">Portada</MudChip>
+                                        }
+                                    </div>
+                                    <MudCardActions Class="px-2 py-1">
+                                        <MudIconButton Icon="@(img.IsCover ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                                                       Size="Size.Small" Disabled="@img.IsCover" aria-label="Hacer portada"
+                                                       OnClick="() => SetCoverAsync(img)" />
+                                        <MudSpacer />
+                                        <MudIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Size="Size.Small"
+                                                       aria-label="Eliminar foto" OnClick="() => DeleteImageAsync(img)" />
+                                    </MudCardActions>
+                                </MudCard>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                }
+            </MudPaper>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">Guarda la propiedad para poder subir fotos.</MudAlert>
+        }
+    }
+</MudStack>
+
+@code {
+    private const int MaxFiles = 4;                    // debe coincidir con Images:MaxFilesPerRequest de la API
+    private const long MaxFileSize = 10 * 1024 * 1024; // y con Images:MaxFileSizeBytes
+
+    [Parameter] public Guid? Id { get; set; }
+
+    private PropertyForm form = new();
+    private PropertyDetail? detail;
+    private UploadResult? uploadResult;
+    private bool loading, saving, uploading;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        error = null;
+        uploadResult = null;
+
+        if (Id is { } id)
+        {
+            loading = true;
+            try
+            {
+                detail = await Api.GetPropertyAsync(id);
+                form = PropertyForm.From(detail);
+            }
+            catch (ApiException ex)
+            {
+                error = ex.Message;
+            }
+            finally
+            {
+                loading = false;
+            }
+        }
+        else
+        {
+            detail = null;
+            form = new PropertyForm();
+            loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        try
+        {
+            if (Id is null)
+            {
+                var created = await Api.CreatePropertyAsync(form);
+                Snackbar.Add("Propiedad creada. Ahora puedes subir las fotos.", Severity.Success);
+                Nav.NavigateTo($"properties/{created.Id}");
+            }
+            else
+            {
+                detail = await Api.UpdatePropertyAsync(Id.Value, form);
+                form = PropertyForm.From(detail);
+                Snackbar.Add("Cambios guardados.", Severity.Success);
+            }
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        if (detail is null) return;
+
+        if (e.FileCount > MaxFiles)
+        {
+            Snackbar.Add($"Selecciona como máximo {MaxFiles} fotos por vez.", Severity.Warning);
+            return;
+        }
+
+        var files = e.GetMultipleFiles(MaxFiles);
+        var tooBig = files.FirstOrDefault(f => f.Size > MaxFileSize);
+        if (tooBig is not null)
+        {
+            Snackbar.Add($"'{tooBig.Name}' supera los {MaxFileSize / 1024 / 1024} MB.", Severity.Warning);
+            return;
+        }
+
+        uploading = true;
+        uploadResult = null;
+        try
+        {
+            uploadResult = await Api.UploadImagesAsync(detail.Id, files, MaxFileSize);
+            detail = await Api.GetPropertyAsync(detail.Id);
+
+            if (uploadResult.Uploaded.Count > 0)
+                Snackbar.Add($"{uploadResult.Uploaded.Count} foto(s) subida(s).", Severity.Success);
+        }
+        catch (Exception ex) when (ex is ApiException or IOException)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            uploading = false;
+        }
+    }
+
+    private async Task SetCoverAsync(PropertyImage img)
+    {
+        if (detail is null) return;
+        try
+        {
+            await Api.SetCoverAsync(detail.Id, img.Id);
+            detail = await Api.GetPropertyAsync(detail.Id);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task DeleteImageAsync(PropertyImage img)
+    {
+        if (detail is null) return;
+
+        var confirmed = await Dialogs.ShowMessageBox(
+            "Eliminar foto", "¿Eliminar esta foto? Esta acción no se puede deshacer.",
+            yesText: "Eliminar", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
+        try
+        {
+            await Api.DeleteImageAsync(detail.Id, img.Id);
+            detail = await Api.GetPropertyAsync(detail.Id);
+            Snackbar.Add("Foto eliminada.", Severity.Success);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

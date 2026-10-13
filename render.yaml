@@ -1,0 +1,51 @@
+# Render Blueprint: crea el servicio web GRATIS de la API a partir de este repositorio.
+# Los valores marcados "sync: false" se piden al crear el servicio (se guardan cifrados en Render, no en el repo).
+services:
+  - type: web
+    name: realestate-api
+    runtime: docker
+    plan: free
+    # Usa la región más cercana a tu proyecto de Supabase (API <-> BD hace muchas consultas por request).
+    # Recomendado: Supabase "East US (North Virginia)" + Render "virginia".
+    region: virginia
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+
+      # --- Base de datos (Supabase, pooler en modo sesión) ---
+      - key: ConnectionStrings__Default
+        sync: false
+
+      # --- JWT: Render genera una clave aleatoria segura ---
+      - key: Jwt__Key
+        generateValue: true
+
+      # --- Supabase Storage ---
+      - key: Storage__Provider
+        value: Supabase
+      - key: Storage__SupabaseUrl
+        sync: false
+      - key: Storage__SupabaseKey
+        sync: false
+      - key: Storage__SupabaseBucket
+        value: property-images
+
+      # --- CORS: origen del panel, SIN ruta final. Ej: https://tuusuario.github.io ---
+      - key: Cors__Origins__0
+        sync: false
+
+      # --- Seed: tu usuario SuperAdmin ---
+      - key: Seed__SuperAdminEmail
+        sync: false
+      - key: Seed__SuperAdminPassword
+        sync: false
+
+      # --- Datos de demo (opcional): inmobiliaria + socio + 5 propiedades de ejemplo ---
+      - key: Seed__DemoData
+        value: "true"
+      - key: Seed__DemoPassword
+        sync: false
