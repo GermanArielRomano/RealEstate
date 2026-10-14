@@ -55,6 +55,11 @@ public sealed class SavePropertyRequest
     [Range(0, 50)] public int Bedrooms { get; init; }
     [Range(0, 50)] public int Bathrooms { get; init; }
     [Range(typeof(decimal), "0", "1000000")] public decimal AreaM2 { get; init; }
+    [Range(typeof(decimal), "0", "1000000")] public decimal? CoveredAreaM2 { get; init; }
+    [Range(0, 50)] public int Rooms { get; init; }
+    [Range(0, 20)] public int Garages { get; init; }
+    [Range(0, 20)] public int HalfBaths { get; init; }
+    [Range(0, 200)] public int? AgeYears { get; init; }
 
     public Guid? OwnerId { get; init; }          // Contact del mismo tenant
     public Guid? AssignedAgentId { get; init; }  // AppUser del mismo tenant
@@ -71,7 +76,7 @@ public sealed record PropertyListItemDto(
     Guid Id, string Code, string Title,
     OperationType Operation, PropertyType Type, PropertyStatus Status,
     decimal Price, Currency Currency, string City,
-    int Bedrooms, int Bathrooms, decimal AreaM2,
+    int Bedrooms, int Bathrooms, decimal AreaM2, int Rooms, int Garages,
     string? CoverThumbnailUrl);
 
 public sealed record PropertyImageDto(Guid Id, string Url, string ThumbnailUrl, int SortOrder, bool IsCover);
@@ -82,6 +87,7 @@ public sealed record PropertyDetailDto(
     decimal Price, Currency Currency,
     string Street, string City, string? Province, double? Latitude, double? Longitude,
     int Bedrooms, int Bathrooms, decimal AreaM2,
+    decimal? CoveredAreaM2, int Rooms, int Garages, int HalfBaths, int? AgeYears,
     Guid? OwnerId, Guid? AssignedAgentId,
     IReadOnlyList<PropertyImageDto> Images,
     DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);

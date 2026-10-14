@@ -84,17 +84,37 @@
                         <MudPaper Outlined="true" Elevation="0" Class="pa-6">
                             <MudText Typo="Typo.h6" Class="mb-4">Características</MudText>
                             <MudGrid Spacing="3">
-                                <MudItem xs="6" sm="4">
+                                <MudItem xs="6" sm="3">
+                                    <MudNumericField @bind-Value="form.Rooms" For="() => form.Rooms" Label="Ambientes"
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" Min="0" Max="50" />
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
                                     <MudNumericField @bind-Value="form.Bedrooms" For="() => form.Bedrooms" Label="Dormitorios"
-                                                     Variant="Variant.Outlined" Min="0" Max="50" HideSpinButtons="true" />
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" Min="0" Max="50" />
                                 </MudItem>
-                                <MudItem xs="6" sm="4">
+                                <MudItem xs="6" sm="3">
                                     <MudNumericField @bind-Value="form.Bathrooms" For="() => form.Bathrooms" Label="Baños"
-                                                     Variant="Variant.Outlined" Min="0" Max="50" HideSpinButtons="true" />
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" Min="0" Max="50" />
                                 </MudItem>
-                                <MudItem xs="12" sm="4">
-                                    <MudNumericField @bind-Value="form.AreaM2" For="() => form.AreaM2" Label="Superficie (m²)"
-                                                     Variant="Variant.Outlined" Min="0m" HideSpinButtons="true" />
+                                <MudItem xs="6" sm="3">
+                                    <MudNumericField @bind-Value="form.HalfBaths" For="() => form.HalfBaths" Label="Toilettes"
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" Min="0" Max="20" />
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudNumericField @bind-Value="form.Garages" For="() => form.Garages" Label="Cocheras"
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" Min="0" Max="20" />
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudNumericField @bind-Value="form.AgeYears" For="() => form.AgeYears" Label="Antigüedad (años)"
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" Min="0" Max="200" HelperText="0 = a estrenar" />
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudNumericField @bind-Value="form.AreaM2" For="() => form.AreaM2" Label="Sup. total (m²)"
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" Min="0m" />
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudNumericField @bind-Value="form.CoveredAreaM2" For="() => form.CoveredAreaM2" Label="Sup. cubierta (m²)"
+                                                     Variant="Variant.Outlined" HideSpinButtons="true" Min="0m" />
                                 </MudItem>
                             </MudGrid>
                         </MudPaper>

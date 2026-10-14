@@ -73,14 +73,14 @@ public sealed class PropertiesController(
             .Take(q.PageSize)
             .Select(p => new ListRow(
                 p.Id, p.TenantId, p.Code, p.Title, p.Operation, p.Type, p.Status,
-                p.Price, p.Currency, p.City, p.Bedrooms, p.Bathrooms, p.AreaM2,
+                p.Price, p.Currency, p.City, p.Bedrooms, p.Bathrooms, p.AreaM2, p.Rooms, p.Garages,
                 p.Images.OrderByDescending(i => i.IsCover).ThenBy(i => i.SortOrder)
                         .Select(i => (Guid?)i.Id).FirstOrDefault()))
             .ToListAsync(ct);
 
         var items = rows.Select(r => new PropertyListItemDto(
             r.Id, r.Code, r.Title, r.Operation, r.Type, r.Status,
-            r.Price, r.Currency, r.City, r.Bedrooms, r.Bathrooms, r.AreaM2,
+            r.Price, r.Currency, r.City, r.Bedrooms, r.Bathrooms, r.AreaM2, r.Rooms, r.Garages,
             r.CoverImageId is { } coverId
                 ? storage.GetUrl(ImageKeys.Thumbnail(r.TenantId, r.Id, coverId))
                 : null)).ToList();
@@ -385,6 +385,11 @@ public sealed class PropertiesController(
         p.Bedrooms = r.Bedrooms;
         p.Bathrooms = r.Bathrooms;
         p.AreaM2 = r.AreaM2;
+        p.CoveredAreaM2 = r.CoveredAreaM2;
+        p.Rooms = r.Rooms;
+        p.Garages = r.Garages;
+        p.HalfBaths = r.HalfBaths;
+        p.AgeYears = r.AgeYears;
         p.OwnerId = r.OwnerId;
         p.AssignedAgentId = r.AssignedAgentId;
     }
@@ -396,7 +401,9 @@ public sealed class PropertiesController(
         p.Id, p.Code, p.Title, p.Description,
         p.Operation, p.Type, p.Status, p.Price, p.Currency,
         p.Street, p.City, p.Province, p.Latitude, p.Longitude,
-        p.Bedrooms, p.Bathrooms, p.AreaM2, p.OwnerId, p.AssignedAgentId,
+        p.Bedrooms, p.Bathrooms, p.AreaM2,
+        p.CoveredAreaM2, p.Rooms, p.Garages, p.HalfBaths, p.AgeYears,
+        p.OwnerId, p.AssignedAgentId,
         p.Images.OrderBy(i => i.SortOrder).Select(i => ToImageDto(p, i)).ToList(),
         p.CreatedAt, p.UpdatedAt);
 
@@ -423,5 +430,5 @@ public sealed class PropertiesController(
         Guid Id, Guid TenantId, string Code, string Title,
         OperationType Operation, PropertyType Type, PropertyStatus Status,
         decimal Price, Currency Currency, string City,
-        int Bedrooms, int Bathrooms, decimal AreaM2, Guid? CoverImageId);
+        int Bedrooms, int Bathrooms, decimal AreaM2, int Rooms, int Garages, Guid? CoverImageId);
 }

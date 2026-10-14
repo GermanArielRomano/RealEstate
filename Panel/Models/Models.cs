@@ -16,7 +16,7 @@ public sealed record PagedResult<T>(List<T> Items, int Page, int PageSize, int T
 public sealed record PropertyListItem(
     Guid Id, string Code, string Title, string Operation, string Type, string Status,
     decimal Price, string Currency, string City, int Bedrooms, int Bathrooms, decimal AreaM2,
-    string? CoverThumbnailUrl);
+    int Rooms, int Garages, string? CoverThumbnailUrl);
 
 public sealed record PropertyImage(Guid Id, string Url, string ThumbnailUrl, int SortOrder, bool IsCover);
 
@@ -24,7 +24,9 @@ public sealed record PropertyDetail(
     Guid Id, string Code, string Title, string? Description,
     string Operation, string Type, string Status, decimal Price, string Currency,
     string Street, string City, string? Province, double? Latitude, double? Longitude,
-    int Bedrooms, int Bathrooms, decimal AreaM2, Guid? OwnerId, Guid? AssignedAgentId,
+    int Bedrooms, int Bathrooms, decimal AreaM2,
+    decimal? CoveredAreaM2, int Rooms, int Garages, int HalfBaths, int? AgeYears,
+    Guid? OwnerId, Guid? AssignedAgentId,
     List<PropertyImage> Images, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
 
 public sealed record UploadFailure(string FileName, string Reason);
@@ -61,6 +63,11 @@ public sealed class PropertyForm
     [Range(0, 50)] public int Bedrooms { get; set; }
     [Range(0, 50)] public int Bathrooms { get; set; }
     [Range(typeof(decimal), "0", "1000000", ErrorMessage = "Superficie inválida.")] public decimal AreaM2 { get; set; }
+    [Range(typeof(decimal), "0", "1000000", ErrorMessage = "Superficie cubierta inválida.")] public decimal? CoveredAreaM2 { get; set; }
+    [Range(0, 50)] public int Rooms { get; set; }
+    [Range(0, 20)] public int Garages { get; set; }
+    [Range(0, 20)] public int HalfBaths { get; set; }
+    [Range(0, 200, ErrorMessage = "Antigüedad inválida.")] public int? AgeYears { get; set; }
 
     // No se editan en el panel, pero deben viajar de vuelta: el PUT reemplaza todos los campos
     public Guid? OwnerId { get; set; }
@@ -74,6 +81,7 @@ public sealed class PropertyForm
         Street = d.Street, City = d.City, Province = d.Province,
         Latitude = d.Latitude, Longitude = d.Longitude,
         Bedrooms = d.Bedrooms, Bathrooms = d.Bathrooms, AreaM2 = d.AreaM2,
+        CoveredAreaM2 = d.CoveredAreaM2, Rooms = d.Rooms, Garages = d.Garages, HalfBaths = d.HalfBaths, AgeYears = d.AgeYears,
         OwnerId = d.OwnerId, AssignedAgentId = d.AssignedAgentId
     };
 }
@@ -153,7 +161,7 @@ public static class Catalog
     /// <summary>Sin CultureInfo (InvariantGlobalization): 1234567 => "1.234.567".</summary>
     public static string Price(decimal price, string currency)
     {
-        var symbol = currency switch { "ARS" => "$", "USD" => "US$", "EUR" => "€", _ => currency };
+        var symbol = currency switch { "ARS" => "$", "USD" => "USD", "EUR" => "€", _ => currency };
         var number = price.ToString("N0", System.Globalization.CultureInfo.InvariantCulture).Replace(',', '.');
         return $"{symbol} {number}";
     }

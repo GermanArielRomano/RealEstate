@@ -89,7 +89,12 @@ public class Property : TenantEntity
 
     public int Bedrooms { get; set; }
     public int Bathrooms { get; set; }
-    public decimal AreaM2 { get; set; }
+    public decimal AreaM2 { get; set; }                // superficie total
+    public decimal? CoveredAreaM2 { get; set; }        // superficie cubierta
+    public int Rooms { get; set; }                     // ambientes
+    public int Garages { get; set; }                   // cocheras
+    public int HalfBaths { get; set; }                 // toilettes
+    public int? AgeYears { get; set; }                 // antigüedad en años; 0 = a estrenar; null = sin dato
 
     public Guid? OwnerId { get; set; }
     public Contact? Owner { get; set; }

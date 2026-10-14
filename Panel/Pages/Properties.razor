@@ -130,7 +130,14 @@
                                 <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />
                                 <MudText Typo="Typo.body2">@p.City · @Catalog.Label(Catalog.Types, p.Type)</MudText>
                             </MudStack>
-                            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">@Specs(p) · <code>@p.Code</code></MudText>
+                            <MudStack Row="true" Spacing="3" Wrap="Wrap.Wrap" Class="mt-4">
+                                @if (p.Rooms > 0) { <Spec Icon="@Icons.Material.Outlined.MeetingRoom" Text="@(N(p.Rooms, "amb.", "amb."))" /> }
+                                @if (p.Bedrooms > 0) { <Spec Icon="@Icons.Material.Outlined.Bed" Text="@(N(p.Bedrooms, "dorm.", "dorm."))" /> }
+                                @if (p.Bathrooms > 0) { <Spec Icon="@Icons.Material.Outlined.Bathtub" Text="@(N(p.Bathrooms, "baño", "baños"))" /> }
+                                @if (p.Garages > 0) { <Spec Icon="@Icons.Material.Outlined.DirectionsCar" Text="@(N(p.Garages, "coch.", "coch."))" /> }
+                                @if (p.AreaM2 > 0) { <Spec Icon="@Icons.Material.Outlined.Straighten" Text="@($"{p.AreaM2:0.#} m²")" /> }
+                            </MudStack>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-3">Código <code>@p.Code</code></MudText>
                         </MudCardContent>
 
                         <MudDivider />
@@ -227,6 +234,8 @@
             Snackbar.Add(ex.Message, Severity.Error);
         }
     }
+
+    private static string N(int n, string one, string many) => $"{n} {(n == 1 ? one : many)}";
 
     private static Color StatusColor(string status) => status switch
     {

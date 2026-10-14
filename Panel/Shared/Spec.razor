@@ -1,0 +1,9 @@
+<MudStack AlignItems="AlignItems.Center" Spacing="1" Style="min-width:60px">
+    <MudIcon Icon="@Icon" Size="Size.Medium" Class="mud-text-secondary" />
+    <MudText Typo="Typo.caption" Align="Align.Center">@Text</MudText>
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public string Icon { get; set; } = "";
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+}
