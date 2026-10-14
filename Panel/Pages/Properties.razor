@@ -96,7 +96,7 @@
             @foreach (var p in result.Items)
             {
                 <MudItem xs="12" sm="6" md="4" Class="d-flex">
-                    <MudCard Outlined="true" Elevation="0" Class="w-100 d-flex flex-column">
+                    <MudCard Outlined="true" Elevation="0" Class="w-100 d-flex flex-column" Style="min-width:0">
 
                         <!-- Foto + etiquetas -->
                         <div style="position:relative">
@@ -148,9 +148,6 @@
                             <MudIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Size="Size.Small"
                                            OnClick="() => DeleteAsync(p)" aria-label="Eliminar" />
                         </MudCardActions>
-
-                        <MudCard Outlined="true" Elevation="0" Class="w-100 d-flex flex-column" Style="min-width:0">
-
                     </MudCard>
                 </MudItem>
             }
