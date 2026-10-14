@@ -1,4 +1,4 @@
-ame: Deploy panel (GitHub Pages)
+name: Deploy panel (GitHub Pages)
 
 on:
   push:
