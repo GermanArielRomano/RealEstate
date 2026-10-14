@@ -23,7 +23,7 @@
     <!-- Filtros -->
     <MudGrid Spacing="2">
         <MudItem xs="12" md="6">
-            <MudTextField @bind-Value="filter.Search" Placeholder="Buscar por título, código o calle"
+            <MudTextField @bind-Value="filter.Search" Label="Buscar por título, código o calle"
                           Variant="Variant.Outlined" Margin="Margin.None" Clearable="true"
                           Immediate="true" DebounceInterval="500" OnDebounceIntervalElapsed="SearchAsync"
                           Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
@@ -92,10 +92,9 @@
     }
     else if (result is not null)
     {
-        <MudGrid Spacing="4">
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); grid-auto-rows:1fr; gap:24px">
             @foreach (var p in result.Items)
             {
-                <MudItem xs="12" sm="6" md="4" Class="d-flex">
                     <MudCard Outlined="true" Elevation="0" Class="w-100 d-flex flex-column" Style="min-width:0">
 
                         <!-- Foto + etiquetas -->
@@ -130,7 +129,7 @@
                                 <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />
                                 <MudText Typo="Typo.body2">@p.City · @Catalog.Label(Catalog.Types, p.Type)</MudText>
                             </MudStack>
-                            <div class="mt-4" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; min-height:64px">
+                            <div class="mt-4" style="display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:4px; min-height:64px">
                                 @if (p.Rooms > 0) { <Spec Icon="@Icons.Material.Outlined.MeetingRoom" Text="@(N(p.Rooms, "amb.", "amb."))" /> }
                                 @if (p.Bedrooms > 0) { <Spec Icon="@Icons.Material.Outlined.Bed" Text="@(N(p.Bedrooms, "dorm.", "dorm."))" /> }
                                 @if (p.Bathrooms > 0) { <Spec Icon="@Icons.Material.Outlined.Bathtub" Text="@(N(p.Bathrooms, "baño", "baños"))" /> }
@@ -149,9 +148,9 @@
                                            OnClick="() => DeleteAsync(p)" aria-label="Eliminar" />
                         </MudCardActions>
                     </MudCard>
-                </MudItem>
+                
             }
-        </MudGrid>
+        </div>
 
         @if (result.TotalPages > 1)
         {
