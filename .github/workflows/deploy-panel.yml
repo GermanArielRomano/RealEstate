@@ -15,13 +15,13 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false  # IMPORTANTE: false evita que se pisen las colas de subida
+  cancel-in-progress: false  # Mantenemos esto en false para evitar bloqueos de colas
 
 jobs:
-  build-and-deploy:          # Unificamos el bloque para asegurar que los archivos no se pierdan
+  build-and-deploy:
     runs-on: ubuntu-latest
     environment:
-      name: github-pages-v2  # CLAVE: Forzamos un entorno nuevo para destrabar el error 400
+      name: github-pages     # VOLVEMOS AL ORIGINAL: Para que GitHub Pages enlace tu Blazor con la URL real
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
