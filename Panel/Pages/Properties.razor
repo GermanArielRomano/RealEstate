@@ -24,13 +24,13 @@
     <MudGrid Spacing="2">
         <MudItem xs="12" md="6">
             <MudTextField @bind-Value="filter.Search" Placeholder="Buscar por título, código o calle"
-                          Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                          Variant="Variant.Outlined" Margin="Margin.None" Clearable="true"
                           Immediate="true" DebounceInterval="500" OnDebounceIntervalElapsed="SearchAsync"
                           Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
         </MudItem>
         <MudItem xs="6" md="3">
             <MudSelect T="string" @bind-Value="filter.Status" @bind-Value:after="SearchAsync" Label="Estado"
-                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                       Variant="Variant.Outlined" Margin="Margin.None" Clearable="true">
                 @foreach (var s in Catalog.Statuses)
                 {
                     <MudSelectItem T="string" Value="@s.Value">@s.Label</MudSelectItem>
@@ -39,7 +39,7 @@
         </MudItem>
         <MudItem xs="6" md="3">
             <MudSelect T="string" @bind-Value="filter.Operation" @bind-Value:after="SearchAsync" Label="Operación"
-                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                       Variant="Variant.Outlined" Margin="Margin.None" Clearable="true">
                 @foreach (var o in Catalog.Operations)
                 {
                     <MudSelectItem T="string" Value="@o.Value">@o.Label</MudSelectItem>
@@ -110,7 +110,7 @@
                                     <MudIcon Icon="@Icons.Material.Outlined.HomeWork" Style="font-size:3rem" Class="mud-text-secondary" />
                                 </div>
                             }
-                            <MudChip T="string" Size="Size.Small" Color="Color.Dark" Style="position:absolute; top:12px; left:12px">
+                            <MudChip T="string" Size="Size.Small" Style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,.65); color:#fff; border:1px solid rgba(255,255,255,.2)">
                                 @Catalog.Label(Catalog.Operations, p.Operation)
                             </MudChip>
                             <MudChip T="string" Size="Size.Small" Color="@StatusColor(p.Status)" Style="position:absolute; top:12px; right:12px">
@@ -130,13 +130,13 @@
                                 <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />
                                 <MudText Typo="Typo.body2">@p.City · @Catalog.Label(Catalog.Types, p.Type)</MudText>
                             </MudStack>
-                            <MudStack Row="true" Spacing="3" Wrap="Wrap.Wrap" Class="mt-4">
+                            <div class="mt-4" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:4px; min-height:64px">
                                 @if (p.Rooms > 0) { <Spec Icon="@Icons.Material.Outlined.MeetingRoom" Text="@(N(p.Rooms, "amb.", "amb."))" /> }
                                 @if (p.Bedrooms > 0) { <Spec Icon="@Icons.Material.Outlined.Bed" Text="@(N(p.Bedrooms, "dorm.", "dorm."))" /> }
                                 @if (p.Bathrooms > 0) { <Spec Icon="@Icons.Material.Outlined.Bathtub" Text="@(N(p.Bathrooms, "baño", "baños"))" /> }
                                 @if (p.Garages > 0) { <Spec Icon="@Icons.Material.Outlined.DirectionsCar" Text="@(N(p.Garages, "coch.", "coch."))" /> }
                                 @if (p.AreaM2 > 0) { <Spec Icon="@Icons.Material.Outlined.Straighten" Text="@($"{p.AreaM2:0.#} m²")" /> }
-                            </MudStack>
+                            </div>
                             <MudText Typo="Typo.caption" Class="mud-text-secondary mt-3">Código <code>@p.Code</code></MudText>
                         </MudCardContent>
 
@@ -148,6 +148,9 @@
                             <MudIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Size="Size.Small"
                                            OnClick="() => DeleteAsync(p)" aria-label="Eliminar" />
                         </MudCardActions>
+
+                        <MudCard Outlined="true" Elevation="0" Class="w-100 d-flex flex-column" Style="min-width:0">
+
                     </MudCard>
                 </MudItem>
             }
