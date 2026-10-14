@@ -1,4 +1,4 @@
-name: Deploy panel (GitHub Pages)
+ame: Deploy panel (GitHub Pages)
 
 on:
   push:
@@ -18,8 +18,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,14 +36,12 @@ jobs:
           if [ -z "${{ vars.API_BASE_URL }}" ]; then
             echo "Falta la variable de repositorio API_BASE_URL (ej: https://realestate-api.onrender.com/)"; exit 1
           fi
-
       # Se ajusta el código fuente ANTES de publicar (así Blazor procesa bien los archivos)
       - name: Configurar URL de la API y base href
         run: |
           echo "{ \"ApiBaseUrl\": \"${{ vars.API_BASE_URL }}\" }" > Panel/wwwroot/appsettings.json
           # GitHub Pages sirve el sitio en /<nombre-del-repo>/
           sed -i 's|<base href="/" />|<base href="/${{ github.event.repository.name }}/" />|' Panel/wwwroot/index.html
-
       - name: Publicar
         run: dotnet publish Panel/RealEstate.Panel.csproj -c Release -o release
 
@@ -49,20 +50,9 @@ jobs:
         run: |
           cp release/wwwroot/index.html release/wwwroot/404.html
           touch release/wwwroot/.nojekyll
-
       - uses: actions/configure-pages@v5
-
-      - name: Subir artefacto
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: release/wwwroot
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
       - id: deployment
         uses: actions/deploy-pages@v4
