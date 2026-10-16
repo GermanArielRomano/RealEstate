@@ -18,28 +18,15 @@ public sealed class PublicApi(HttpClient http)
 
     public Task<PagedResult<PublicListItem>> SearchAsync(SearchFilter f, CancellationToken ct = default)
     {
-        var qs = new List<string> { $"Page={f.Page}", $"PageSize={f.PageSize}", $"Sort={f.Sort}" };
-
-        void Add(string key, string? value)
-        {
-            if (!string.IsNullOrWhiteSpace(value)) qs.Add($"{key}={Uri.EscapeDataString(value.Trim())}");
-        }
-
-        Add("Operation", f.Operation);
-        Add("Type", f.Type);
-        Add("City", f.City);
-        Add("Search", f.Search);
-        if (f.MinBedrooms is { } beds) qs.Add($"MinBedrooms={beds}");
-
-        if (f.MinPrice is not null || f.MaxPrice is not null)
-        {
-            Add("Currency", f.Currency);   // el servidor solo filtra por precio si llega la moneda
-            if (f.MinPrice is { } min) qs.Add($"MinPrice={min.ToString(CultureInfo.InvariantCulture)}");
-            if (f.MaxPrice is { } max) qs.Add($"MaxPrice={max.ToString(CultureInfo.InvariantCulture)}");
-        }
-
+        var qs = FilterParams(f);
+        qs.Add($"Page={f.Page}");
+        qs.Add($"PageSize={f.PageSize}");
         return GetAsync<PagedResult<PublicListItem>>($"api/public/properties?{string.Join('&', qs)}", ct);
     }
+
+    /// <summary>Pines del mapa con los mismos filtros (y zona) que el listado.</summary>
+    public Task<MapResult> MapAsync(SearchFilter f, CancellationToken ct = default) =>
+        GetAsync<MapResult>($"api/public/map?{string.Join('&', FilterParams(f))}", ct);
 
     public Task<PagedResult<PublicListItem>> ByIdsAsync(IEnumerable<Guid> ids, int page, CancellationToken ct = default) =>
         GetAsync<PagedResult<PublicListItem>>(
@@ -62,6 +49,40 @@ public sealed class PublicApi(HttpClient http)
         {
             throw new ApiException(Unreachable);
         }
+    }
+
+    private static List<string> FilterParams(SearchFilter f)
+    {
+        var qs = new List<string> { $"Sort={f.Sort}" };
+        var inv = CultureInfo.InvariantCulture;
+
+        void Add(string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value)) qs.Add($"{key}={Uri.EscapeDataString(value.Trim())}");
+        }
+
+        Add("Operation", f.Operation);
+        Add("Type", f.Type);
+        Add("City", f.City);
+        Add("Search", f.Search);
+        if (f.MinBedrooms is { } beds) qs.Add($"MinBedrooms={beds}");
+
+        if (f.MinPrice is not null || f.MaxPrice is not null)
+        {
+            Add("Currency", f.Currency);   // el servidor solo filtra por precio si llega la moneda
+            if (f.MinPrice is { } min) qs.Add($"MinPrice={min.ToString(inv)}");
+            if (f.MaxPrice is { } max) qs.Add($"MaxPrice={max.ToString(inv)}");
+        }
+
+        if (f.HasZone)
+        {
+            qs.Add($"MinLat={f.MinLat!.Value.ToString(inv)}");
+            qs.Add($"MaxLat={f.MaxLat!.Value.ToString(inv)}");
+            qs.Add($"MinLon={f.MinLon!.Value.ToString(inv)}");
+            qs.Add($"MaxLon={f.MaxLon!.Value.ToString(inv)}");
+        }
+
+        return qs;
     }
 
     private async Task<T> GetAsync<T>(string url, CancellationToken ct)

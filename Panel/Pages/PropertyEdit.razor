@@ -131,13 +131,9 @@
                                 <MudItem xs="12" sm="6">
                                     <MudTextField @bind-Value="form.Province" For="() => form.Province" Label="Provincia" Variant="Variant.Outlined" />
                                 </MudItem>
-                                <MudItem xs="6">
-                                    <MudNumericField @bind-Value="form.Latitude" For="() => form.Latitude" Label="Latitud (opcional)"
-                                                     Variant="Variant.Outlined" HideSpinButtons="true" />
-                                </MudItem>
-                                <MudItem xs="6">
-                                    <MudNumericField @bind-Value="form.Longitude" For="() => form.Longitude" Label="Longitud (opcional)"
-                                                     Variant="Variant.Outlined" HideSpinButtons="true" />
+                                <MudItem xs="12">
+                                    <LocationPicker @bind-Latitude="form.Latitude" @bind-Longitude="form.Longitude"
+                                                    Query="@AddressQuery" FallbackQuery="@CityQuery" />
                                 </MudItem>
                             </MudGrid>
                         </MudPaper>
@@ -256,6 +252,12 @@
     private UploadResult? uploadResult;
     private bool loading, saving, uploading;
     private string? error;
+
+    private string AddressQuery => string.Join(", ",
+        new[] { form.Street, form.City, form.Province }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    private string CityQuery => string.Join(", ",
+        new[] { form.City, form.Province }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
     protected override async Task OnParametersSetAsync()
     {

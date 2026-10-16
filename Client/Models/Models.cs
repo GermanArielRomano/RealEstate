@@ -24,6 +24,12 @@ public sealed record PublicDetail(
 
 public sealed record PublicFilters(List<string> Cities);
 
+public sealed record MapPoint(
+    Guid Id, double Lat, double Lon, string Title, string Operation,
+    decimal Price, string Currency, int Bedrooms, decimal AreaM2);
+
+public sealed record MapResult(List<MapPoint> Points, int TotalMatching, int Located);
+
 public sealed class SearchFilter
 {
     public string? Search { get; set; }
@@ -37,6 +43,14 @@ public sealed class SearchFilter
     public string Sort { get; set; } = "Newest";
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 12;
+
+    // Zona del mapa (null = sin zona)
+    public double? MinLat { get; set; }
+    public double? MaxLat { get; set; }
+    public double? MinLon { get; set; }
+    public double? MaxLon { get; set; }
+
+    public bool HasZone => MinLat is not null && MaxLat is not null && MinLon is not null && MaxLon is not null;
 }
 
 public static class Catalog
@@ -67,6 +81,17 @@ public static class Catalog
     /// <summary>"Venta USD 98.000" como en los portales.</summary>
     public static string Headline(string operation, decimal price, string currency) =>
         $"{Label(Operations, operation)} {Price(price, currency)}";
+
+    /// <summary>Precio corto para los pines del mapa: "USD 98k", "USD 1,2M".</summary>
+    public static string ShortPrice(decimal price, string currency)
+    {
+        var symbol = currency switch { "ARS" => "$", "EUR" => "€", _ => currency };
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var n = price >= 1_000_000m ? $"{(price / 1_000_000m).ToString("0.##", inv).Replace('.', ',')}M"
+              : price >= 1_000m ? $"{Math.Round(price / 1_000m).ToString("0", inv)}k"
+              : price.ToString("0", inv);
+        return $"{symbol} {n}";
+    }
 
     public static string? AgeText(int? years) => years switch
     {

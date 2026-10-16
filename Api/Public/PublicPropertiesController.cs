@@ -35,35 +35,7 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
     [HttpGet("properties")]
     public async Task<ActionResult<PagedResult<PublicListItemDto>>> List([FromQuery] PublicListQuery q, CancellationToken ct)
     {
-        var props = BaseProperties();
-
-        if (q.Operation is { } op) props = props.Where(p => p.Operation == op);
-        if (q.Type is { } type) props = props.Where(p => p.Type == type);
-        if (q.MinBedrooms is { } beds) props = props.Where(p => p.Bedrooms >= beds);
-
-        if (!string.IsNullOrWhiteSpace(q.City))
-        {
-            var city = EscapeLike(q.City.Trim());
-            props = props.Where(p => EF.Functions.ILike(p.City, city));
-        }
-
-        if (!string.IsNullOrWhiteSpace(q.Search))
-        {
-            var pattern = $"%{EscapeLike(q.Search.Trim())}%";
-            props = props.Where(p => EF.Functions.ILike(p.Title, pattern) ||
-                                     EF.Functions.ILike(p.City, pattern) ||
-                                     EF.Functions.ILike(p.Street, pattern));
-        }
-
-        if (q.Currency is { } cur)
-        {
-            props = props.Where(p => p.Currency == cur);
-            if (q.MinPrice is { } min) props = props.Where(p => p.Price >= min);
-            if (q.MaxPrice is { } max) props = props.Where(p => p.Price <= max);
-        }
-
-        if (ParseIds(q.Ids) is { } ids)
-            props = props.Where(p => ids.Contains(p.Id));
+        var props = ApplyFilters(BaseProperties(), q);
 
         var joined = props.Join(ActiveTenants(), p => p.TenantId, t => t.Id,
             (p, t) => new { p, AgencyName = t.Name });
@@ -143,6 +115,68 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
             .ToListAsync(ct);
 
         return new PublicFiltersDto(cities);
+    }
+
+    // ------------------------------------------------------------------
+    /// <summary>Pines del mapa (máx. 300) con los mismos filtros que el listado. Sin paginar.</summary>
+    [HttpGet("map")]
+    public async Task<PublicMapDto> Map([FromQuery] PublicListQuery q, CancellationToken ct)
+    {
+        var matching = ApplyFilters(BaseProperties(), q)
+            .Join(ActiveTenants(), p => p.TenantId, t => t.Id, (p, t) => p);
+        var located = matching.Where(p => p.Latitude != null && p.Longitude != null);
+
+        var total = await matching.CountAsync(ct);
+        var locatedCount = await located.CountAsync(ct);
+
+        var points = await located
+            .OrderByDescending(p => p.CreatedAt).ThenByDescending(p => p.Id)
+            .Take(300)
+            .Select(p => new PublicMapPointDto(p.Id, p.Latitude!.Value, p.Longitude!.Value, p.Title,
+                p.Operation, p.Price, p.Currency, p.Bedrooms, p.AreaM2))
+            .ToListAsync(ct);
+
+        return new PublicMapDto(points, total, locatedCount);
+    }
+
+    // ------------------------------------------------------------------
+    /// <summary>Filtros comunes del listado y del mapa. Se aplican ANTES de proyectar.</summary>
+    private static IQueryable<Property> ApplyFilters(IQueryable<Property> props, PublicListQuery q)
+    {
+        if (q.Operation is { } op) props = props.Where(p => p.Operation == op);
+        if (q.Type is { } type) props = props.Where(p => p.Type == type);
+        if (q.MinBedrooms is { } beds) props = props.Where(p => p.Bedrooms >= beds);
+
+        if (!string.IsNullOrWhiteSpace(q.City))
+        {
+            var city = EscapeLike(q.City.Trim());
+            props = props.Where(p => EF.Functions.ILike(p.City, city));
+        }
+
+        if (!string.IsNullOrWhiteSpace(q.Search))
+        {
+            var pattern = $"%{EscapeLike(q.Search.Trim())}%";
+            props = props.Where(p => EF.Functions.ILike(p.Title, pattern) ||
+                                     EF.Functions.ILike(p.City, pattern) ||
+                                     EF.Functions.ILike(p.Street, pattern));
+        }
+
+        if (q.Currency is { } cur)
+        {
+            props = props.Where(p => p.Currency == cur);
+            if (q.MinPrice is { } min) props = props.Where(p => p.Price >= min);
+            if (q.MaxPrice is { } max) props = props.Where(p => p.Price <= max);
+        }
+
+        if (ParseIds(q.Ids) is { } ids)
+            props = props.Where(p => ids.Contains(p.Id));
+
+        // Zona del mapa: las propiedades sin coordenadas quedan fuera automáticamente
+        if (q.MinLat is { } south && q.MaxLat is { } north && q.MinLon is { } west && q.MaxLon is { } east)
+            props = props.Where(p => p.Latitude >= south && p.Latitude <= north &&
+                                     p.Longitude >= west && p.Longitude <= east);
+
+        return props;
     }
 
     // ------------------------------------------------------------------

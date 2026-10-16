@@ -18,6 +18,12 @@ public sealed class PublicListQuery
     [Range(typeof(decimal), "0", "1000000000000")] public decimal? MaxPrice { get; init; }
     [Range(0, 50)] public int? MinBedrooms { get; init; }
 
+    // Zona del mapa (rectángulo visible o que contiene el dibujo): sur, norte, oeste, este
+    [Range(-90, 90)] public double? MinLat { get; init; }
+    [Range(-90, 90)] public double? MaxLat { get; init; }
+    [Range(-180, 180)] public double? MinLon { get; init; }
+    [Range(-180, 180)] public double? MaxLon { get; init; }
+
     [StringLength(2000)] public string? Ids { get; init; }   // ids separados por coma (favoritos)
 
     public PublicSort Sort { get; init; } = PublicSort.Newest;
@@ -43,3 +49,10 @@ public sealed record PublicDetailDto(
     string AgencyName, string? AgencyWhatsApp, IReadOnlyList<PublicImageDto> Images);
 
 public sealed record PublicFiltersDto(IReadOnlyList<string> Cities);
+
+// Pines del mapa: datos mínimos para dibujar y abrir el detalle
+public sealed record PublicMapPointDto(
+    Guid Id, double Lat, double Lon, string Title, OperationType Operation,
+    decimal Price, Currency Currency, int Bedrooms, decimal AreaM2);
+
+public sealed record PublicMapDto(IReadOnlyList<PublicMapPointDto> Points, int TotalMatching, int Located);

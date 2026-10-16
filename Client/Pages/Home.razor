@@ -4,22 +4,34 @@
 
 <PageTitle>Inmobiliarias</PageTitle>
 
-@* Un solo "route": con ?id=... se muestra el detalle; sin él, el listado. Así no hacen falta rutas profundas
-   (GitHub Pages no las soporta sin trucos) y cada propiedad tiene su enlace para compartir. *@
+@* Un solo "route": con ?id=... se muestra el detalle; sin él, el listado o el mapa. Así no hacen falta rutas
+   profundas (GitHub Pages no las soporta sin trucos) y cada propiedad tiene su enlace para compartir. *@
 @if (Id is { } id)
 {
     <PropertyDetail PropertyId="id" />
 }
 else
 {
-    <MudStack Spacing="1" Class="mb-8">
-        <MudText Typo="Typo.h4" Style="font-weight:600">@(IsFavs ? "Mis favoritos" : "Encuentra tu próxima propiedad")</MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Subtitle</MudText>
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.End" Wrap="Wrap.Wrap" Spacing="3" Class="mb-8">
+        <MudStack Spacing="1">
+            <MudText Typo="Typo.h4" Style="font-weight:600">@(IsFavs ? "Mis favoritos" : "Encuentra tu próxima propiedad")</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@Subtitle</MudText>
+        </MudStack>
+
+        @if (!IsFavs)
+        {
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="@(mapMode ? Variant.Outlined : Variant.Filled)" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.ViewList" OnClick="() => SetModeAsync(false)">Lista</MudButton>
+                <MudButton Variant="@(mapMode ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.Map" OnClick="() => SetModeAsync(true)">Mapa</MudButton>
+            </MudStack>
+        }
     </MudStack>
 
     @if (!IsFavs)
     {
-        <MudStack Spacing="3" Class="mb-8">
+        <MudStack Spacing="3" Class="mb-6">
             <MudGrid Spacing="2">
                 <MudItem xs="12" md="5">
                     <MudTextField @bind-Value="filter.Search" Label="Buscar por zona, calle o título"
@@ -84,65 +96,97 @@ else
                     </MudItem>
                 </MudGrid>
             </MudCollapse>
+
+            @if (filter.HasZone)
+            {
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2">Mostrando solo la zona del mapa que elegiste</MudText>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Close"
+                               OnClick="ClearZoneAsync">Quitar zona</MudButton>
+                </MudStack>
+            }
         </MudStack>
     }
 
-    @if (error is not null)
+    @if (mapMode && !IsFavs)
     {
-        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-6">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                <span>@error</span>
-                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Reintentar</MudButton>
-            </MudStack>
-        </MudAlert>
-    }
-
-    @if (loading)
-    {
-        <MudText Typo="Typo.caption" Class="mud-text-secondary">
-            Cargando… si el servidor estaba inactivo puede tardar hasta 1 minuto.
-        </MudText>
-        <div class="mt-3" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:24px">
-            @for (var i = 0; i < 6; i++)
-            {
-                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="360px" Style="border-radius:12px" />
-            }
-        </div>
-    }
-    else if (error is null && (result is null || result.Items.Count == 0))
-    {
-        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="py-16">
-            <MudIcon Icon="@(IsFavs ? Icons.Material.Outlined.FavoriteBorder : Icons.Material.Outlined.HomeWork)"
-                     Style="font-size:4rem" Class="mud-text-secondary" />
-            <MudText Typo="Typo.h6">@(IsFavs ? "Todavía no guardaste favoritos" : "No encontramos propiedades")</MudText>
-            <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                @(IsFavs ? "Toca el corazón en las propiedades que te interesen." : "Prueba con otros filtros.")
-            </MudText>
-            @if (IsFavs)
-            {
-                <MudButton Href="./" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2">Ver propiedades</MudButton>
-            }
-            else if (HasFilters)
-            {
-                <MudButton Variant="Variant.Text" OnClick="ClearFiltersAsync">Limpiar filtros</MudButton>
-            }
-        </MudStack>
-    }
-    else if (result is not null)
-    {
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); grid-auto-rows:1fr; gap:24px">
-            @foreach (var p in result.Items)
-            {
-                <PropertyCard Item="p" IsFavorite="Favs.IsFavorite(p.Id)" OnToggleFavorite="ToggleFavoriteAsync" />
-            }
-        </div>
-
-        @if (result.TotalPages > 1)
+        @if (mapError is not null)
         {
-            <MudStack AlignItems="AlignItems.Center" Class="mt-8">
-                <MudPagination Count="result.TotalPages" Selected="filter.Page" SelectedChanged="GoToAsync"
-                               Variant="Variant.Text" Color="Color.Primary" />
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <span>@mapError</span>
+                    <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadMapAsync">Reintentar</MudButton>
+                </MudStack>
+            </MudAlert>
+        }
+
+        <PropertyMap Points="mapResult?.Points" Loading="mapLoading" FitToPoints="!filter.HasZone" OnSearchArea="SearchAreaAsync" />
+
+        @if (MapNotice is not null)
+        {
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-3 d-block">@MapNotice</MudText>
+        }
+    }
+    else
+    {
+        @if (error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-6">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <span>@error</span>
+                    <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Reintentar</MudButton>
+                </MudStack>
+            </MudAlert>
+        }
+
+        @if (loading)
+        {
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                Cargando… si el servidor estaba inactivo puede tardar hasta 1 minuto.
+            </MudText>
+            <div class="mt-3" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:24px">
+                @for (var i = 0; i < 6; i++)
+                {
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="360px" Style="border-radius:12px" />
+                }
+            </div>
+        }
+        else if (error is null && (result is null || result.Items.Count == 0))
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="py-16">
+                <MudIcon Icon="@(IsFavs ? Icons.Material.Outlined.FavoriteBorder : Icons.Material.Outlined.HomeWork)"
+                         Style="font-size:4rem" Class="mud-text-secondary" />
+                <MudText Typo="Typo.h6">@(IsFavs ? "Todavía no guardaste favoritos" : "No encontramos propiedades")</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @(IsFavs ? "Toca el corazón en las propiedades que te interesen." : "Prueba con otros filtros o con otra zona del mapa.")
+                </MudText>
+                @if (IsFavs)
+                {
+                    <MudButton Href="./" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2">Ver propiedades</MudButton>
+                }
+                else if (HasFilters)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="ClearFiltersAsync">Limpiar filtros</MudButton>
+                }
             </MudStack>
+        }
+        else if (result is not null)
+        {
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); grid-auto-rows:1fr; gap:24px">
+                @foreach (var p in result.Items)
+                {
+                    <PropertyCard Item="p" IsFavorite="Favs.IsFavorite(p.Id)" OnToggleFavorite="ToggleFavoriteAsync" />
+                }
+            </div>
+
+            @if (result.TotalPages > 1)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="mt-8">
+                    <MudPagination Count="result.TotalPages" Selected="filter.Page" SelectedChanged="GoToAsync"
+                                   Variant="Variant.Text" Color="Color.Primary" />
+                </MudStack>
+            }
         }
     }
 }
@@ -153,9 +197,11 @@ else
 
     private readonly SearchFilter filter = new();
     private PagedResult<PublicListItem>? result;
+    private MapResult? mapResult;
     private List<string> cities = [];
-    private bool loading, showAdvanced;
-    private string? error;
+    private bool loading, mapLoading, showAdvanced, mapMode;
+    private bool listStale = true, mapStale = true;
+    private string? error, mapError;
     private string? loadedView;
     private bool citiesRequested;
 
@@ -163,15 +209,29 @@ else
 
     private bool HasFilters =>
         !string.IsNullOrWhiteSpace(filter.Search) || filter.Operation is not null || filter.Type is not null ||
-        filter.City is not null || filter.MinBedrooms is not null || filter.MinPrice is not null || filter.MaxPrice is not null;
+        filter.City is not null || filter.MinBedrooms is not null || filter.MinPrice is not null ||
+        filter.MaxPrice is not null || filter.HasZone;
 
-    private string Subtitle => result is null
-        ? (IsFavs ? "Las propiedades que guardaste" : "Propiedades en venta y alquiler")
-        : $"{result.TotalCount} {(result.TotalCount == 1 ? "propiedad" : "propiedades")}";
+    private string Subtitle
+    {
+        get
+        {
+            if (mapMode && !IsFavs && mapResult is not null)
+                return $"{mapResult.Located} {(mapResult.Located == 1 ? "propiedad ubicada" : "propiedades ubicadas")} en el mapa";
+            if (result is null)
+                return IsFavs ? "Las propiedades que guardaste" : "Propiedades en venta y alquiler";
+            return $"{result.TotalCount} {(result.TotalCount == 1 ? "propiedad" : "propiedades")}";
+        }
+    }
+
+    // Solo sin zona elegida: con una zona, lo que queda fuera del rectángulo es lo esperado
+    private string? MapNotice => !filter.HasZone && mapResult is { } m && m.TotalMatching > m.Located
+        ? $"{m.TotalMatching - m.Located} {(m.TotalMatching - m.Located == 1 ? "propiedad no tiene" : "propiedades no tienen")} ubicación cargada y no se muestran en el mapa; las ves en la lista."
+        : null;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Id is not null) return;   // en el detalle, la lista queda tal cual para volver sin recargar
+        if (Id is not null) return;   // en el detalle, la lista/mapa quedan tal cual para volver sin recargar
 
         if (!citiesRequested)
         {
@@ -183,6 +243,7 @@ else
         if (loadedView == view) return;
         loadedView = view;
         filter.Page = 1;
+        if (IsFavs) mapMode = false;
 
         await Favs.EnsureLoadedAsync();
         await LoadAsync();
@@ -206,6 +267,7 @@ else
                     ? new PagedResult<PublicListItem>([], 1, filter.PageSize, 0)
                     : await Api.ByIdsAsync(Favs.All, filter.Page))
                 : await Api.SearchAsync(filter);
+            listStale = false;
         }
         catch (ApiException ex)
         {
@@ -217,16 +279,62 @@ else
         }
     }
 
+    private async Task LoadMapAsync()
+    {
+        mapLoading = true;
+        mapError = null;
+        try
+        {
+            mapResult = await Api.MapAsync(filter);
+            mapStale = false;
+        }
+        catch (ApiException ex)
+        {
+            mapError = ex.Message;
+        }
+        finally
+        {
+            mapLoading = false;
+        }
+    }
+
+    /// <summary>Cambió algún filtro o la zona: se recarga la vista activa y la otra queda pendiente.</summary>
+    private async Task RefreshActiveAsync()
+    {
+        listStale = mapStale = true;
+        if (mapMode) await LoadMapAsync(); else await LoadAsync();
+    }
+
+    private async Task SetModeAsync(bool map)
+    {
+        mapMode = map;
+        if (map && mapStale) await LoadMapAsync();
+        if (!map && listStale) await LoadAsync();
+    }
+
     private Task SearchAsync()
     {
         filter.Page = 1;
-        return LoadAsync();
+        return RefreshActiveAsync();
     }
 
     private Task GoToAsync(int page)
     {
         filter.Page = page;
         return LoadAsync();
+    }
+
+    // bounds = [sur, oeste, norte, este] del área visible del mapa
+    private Task SearchAreaAsync(double[] bounds)
+    {
+        (filter.MinLat, filter.MinLon, filter.MaxLat, filter.MaxLon) = (bounds[0], bounds[1], bounds[2], bounds[3]);
+        return SearchAsync();
+    }
+
+    private Task ClearZoneAsync()
+    {
+        filter.MinLat = filter.MaxLat = filter.MinLon = filter.MaxLon = null;
+        return SearchAsync();
     }
 
     private Task ClearFiltersAsync()
@@ -238,6 +346,7 @@ else
         filter.MinBedrooms = null;
         filter.MinPrice = null;
         filter.MaxPrice = null;
+        filter.MinLat = filter.MaxLat = filter.MinLon = filter.MaxLon = null;
         return SearchAsync();
     }
 
