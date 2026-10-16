@@ -87,7 +87,8 @@
                 href = $"?id={p.Id}"
             }).ToList();
 
-            await JS.InvokeVoidAsync("reMap.setMarkers", _id, items, FitToPoints);
+            var mode = !string.IsNullOrEmpty(Polygon) ? "zone" : FitToPoints ? "points" : "none";
+            await JS.InvokeVoidAsync("reMap.setMarkers", _id, items, mode);
         }
 
         // La zona se dibuja (o se quita) cuando cambia
@@ -143,7 +144,10 @@
         }
 
         await JS.InvokeVoidAsync("reMap.showMe", _id, r.Lat, r.Lon);
-        await OnPolygon.InvokeAsync(Circle(r.Lat.Value, r.Lon.Value, km));
+        // Se centra y agranda sobre el círculo al instante; después llegan los pines del servidor
+        var circle = Circle(r.Lat.Value, r.Lon.Value, km);
+        await JS.InvokeVoidAsync("reMap.setZone", _id, circle, true);
+        await OnPolygon.InvokeAsync(circle);
     }
 
     // Círculo aproximado con 48 vértices: así el servidor solo necesita saber filtrar por polígono

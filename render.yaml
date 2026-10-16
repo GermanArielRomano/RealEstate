@@ -38,6 +38,10 @@ services:
       - key: Cors__Origins__0
         sync: false
 
+      # --- URL de la app de compradores, SIN barra final: la usa la página /p/{id} (vista previa al compartir) ---
+      - key: App__PublicUrl
+        sync: false
+
       # --- Seed: tu usuario SuperAdmin ---
       - key: Seed__SuperAdminEmail
         sync: false

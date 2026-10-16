@@ -92,6 +92,7 @@ builder.Services.AddControllers()
 
 builder.Services.Configure<SeedOptions>(config.GetSection(SeedOptions.Section));
 builder.Services.AddImageHandling(config);
+builder.Services.AddHttpClient();   // IHttpClientFactory (lo usa la vista previa para compartir)
 
 var app = builder.Build();
 

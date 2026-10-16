@@ -4,6 +4,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
+@inject HttpClient Http
 
 <MudButton Href="./" Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.ArrowBack" Class="mb-4 ms-n2">
     Volver a propiedades
@@ -201,7 +202,8 @@ else
         : null;
 
     // ---- Contacto y compartir ----
-    private string PageUrl => Nav.ToAbsoluteUri($"?id={detail!.Id}").ToString();
+    // Enlace para compartir: página de la API con vista previa (foto y título) que redirige a esta app
+    private string PageUrl => new Uri(Http.BaseAddress!, $"p/{detail!.Id}").ToString();
 
     private string? WhatsAppLink
     {

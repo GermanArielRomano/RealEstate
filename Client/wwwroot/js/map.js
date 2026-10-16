@@ -56,7 +56,7 @@
         },
 
         // items: [{ id, lat, lon, label, title, sub, href }]
-        setMarkers(id, items, fit) {
+        setMarkers(id, items, mode) {
             const s = this._s[id];
             if (!s) return;
 
@@ -74,7 +74,17 @@
             });
             s.layer.addLayers(markers);
 
-            if (fit && points.length) s.map.fitBounds(points, { padding: [48, 48], maxZoom: 16 });
+            // Con zona activa se encuadra la zona; sin zona, los pines; con "none" se respeta la vista actual
+            if (mode === 'zone' && s.zone) this._fitZone(id);
+            else if (mode === 'points' && points.length) s.map.fitBounds(points, { padding: [48, 48], maxZoom: 16 });
+        },
+
+        // Centra y agranda el mapa sobre la zona. Sin animación: así no choca con la carga de pines agrupados.
+        _fitZone(id) {
+            const s = this._s[id];
+            if (!s || !s.zone) return;
+            s.map.invalidateSize();
+            s.map.fitBounds(s.zone.getBounds(), { padding: [32, 32], maxZoom: 17, animate: false });
         },
 
         // [sur, oeste, norte, este] del área visible
@@ -95,7 +105,7 @@
             if (!latlngs || latlngs.length < 3) return;
 
             s.zone = L.polygon(latlngs, { color: '#3b6fe0', weight: 2, fillColor: '#3b6fe0', fillOpacity: 0.08 }).addTo(s.map);
-            if (fit) s.map.fitBounds(s.zone.getBounds(), { padding: [30, 30] });
+            if (fit) this._fitZone(id);
         },
 
         // ---------------- Dibujo a mano alzada ----------------
@@ -183,7 +193,7 @@
                         const ll = s.map.containerPointToLatLng(p);
                         return [round(ll.lat), round(ll.lng)];
                     });
-                    this.setZone(id, verts, false);
+                    this.setZone(id, verts, true);
                     s.dotnet.invokeMethodAsync('OnPolygonDrawn', verts);
                 }
             }
