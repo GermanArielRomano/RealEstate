@@ -25,6 +25,7 @@ public sealed class UpdateTenantRequest
     [Required, StringLength(200)] public string Name { get; init; } = default!;
     [StringLength(30)] public string? TaxId { get; init; }
     [EnumDataType(typeof(TenantPlan))] public TenantPlan Plan { get; init; }
+    [StringLength(32)] public string? WhatsApp { get; init; }
     public bool IsActive { get; init; }
 }
 
@@ -40,7 +41,7 @@ public sealed class SetActiveRequest
 
 public sealed record TenantDto(
     Guid Id, string Name, string Slug, string? TaxId, TenantPlan Plan, bool IsActive,
-    DateTimeOffset CreatedAt, int PropertyCount, int UserCount);
+    DateTimeOffset CreatedAt, int PropertyCount, int UserCount, string? WhatsApp);
 
 public sealed record TenantCreatedDto(TenantDto Tenant, Guid AdminUserId);
 

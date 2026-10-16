@@ -79,6 +79,11 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1) }));
+
+    // Catálogo público: más holgado que el login
+    o.AddPolicy("public", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1) }));
 });
 
 // ---------- MVC + imágenes + seed ----------

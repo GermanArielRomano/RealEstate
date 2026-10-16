@@ -7,6 +7,7 @@
     <RootNamespace>RealEstate.Panel</RootNamespace>
     <!-- Descarga inicial más liviana; los precios y fechas se formatean sin cultura (ver Catalog.cs) -->
     <InvariantGlobalization>true</InvariantGlobalization>
+    <UserSecretsId>d0d0f827-ccb2-46f1-b389-3a7386fabb81</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

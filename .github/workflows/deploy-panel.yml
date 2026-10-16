@@ -1,10 +1,11 @@
-name: Deploy panel (GitHub Pages)
+name: Deploy panel y app de compradores (GitHub Pages)
 
 on:
   push:
-    branches: [master]
+    branches: [main, master]
     paths:
       - "Panel/**"
+      - "Client/**"
       - ".github/workflows/deploy-panel.yml"
   workflow_dispatch:
 
@@ -15,13 +16,13 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false  # Mantenemos esto en false para evitar bloqueos de colas
+  cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     environment:
-      name: github-pages     # VOLVEMOS AL ORIGINAL: Para que GitHub Pages enlace tu Blazor con la URL real
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
@@ -33,25 +34,37 @@ jobs:
       - name: Validar API_BASE_URL
         run: |
           if [ -z "${{ vars.API_BASE_URL }}" ]; then
-            echo "Falta la variable de repositorio API_BASE_URL (ej: https://onrender.com)"; exit 1
+            echo "Falta la variable de repositorio API_BASE_URL (ej: https://realestate-api.onrender.com/)"; exit 1
           fi
 
+      # Se ajusta el código fuente ANTES de publicar
       - name: Configurar URL de la API y base href
         run: |
-          echo "{ \"ApiBaseUrl\": \"${{ vars.API_BASE_URL }}\" }" > Panel/wwwroot/appsettings.json
+          for app in Panel Client; do
+            echo "{ \"ApiBaseUrl\": \"${{ vars.API_BASE_URL }}\" }" > $app/wwwroot/appsettings.json
+          done
+          # GitHub Pages sirve el sitio en /<repo>/ ; el panel en la raíz y la app de compradores en /app/
           sed -i 's|<base href="/" />|<base href="/${{ github.event.repository.name }}/" />|' Panel/wwwroot/index.html
+          sed -i 's|<base href="/" />|<base href="/${{ github.event.repository.name }}/app/" />|' Client/wwwroot/index.html
 
-      - name: Publicar
-        run: dotnet publish Panel/RealEstate.Panel.csproj -c Release -o release
+      - name: Publicar panel
+        run: dotnet publish Panel/RealEstate.Panel.csproj -c Release -o release/panel
 
-      - name: Fallback SPA + .nojekyll
+      - name: Publicar app de compradores
+        run: dotnet publish Client/RealEstate.Client.csproj -c Release -o release/client
+
+      - name: Armar el sitio
         run: |
-          cp release/wwwroot/index.html release/wwwroot/404.html
-          touch release/wwwroot/.nojekyll
+          mkdir -p site/app
+          cp -r release/panel/wwwroot/. site/
+          cp -r release/client/wwwroot/. site/app/
+          # GitHub Pages no tiene "fallback" de SPA: el 404.html del panel permite refrescar en sus subrutas
+          cp site/index.html site/404.html
+          touch site/.nojekyll
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: release/wwwroot
+          path: site
       - id: deployment
         uses: actions/deploy-pages@v4

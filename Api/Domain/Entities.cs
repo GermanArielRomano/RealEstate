@@ -48,6 +48,7 @@ public class Tenant : BaseEntity
     public string Slug { get; set; } = default!;
     public string? TaxId { get; set; }
     public TenantPlan Plan { get; set; } = TenantPlan.Free;
+    public string? WhatsApp { get; set; }   // contacto público para compradores (con código de país, solo dígitos)
     public bool IsActive { get; set; } = true;
 
     public ICollection<AppUser> Users { get; set; } = [];

@@ -30,6 +30,7 @@ public sealed class AdminController(AppDbContext db, UserManager<AppUser> users)
             query = query.Where(t => t.Name.ToLower().Contains(s) || t.Slug.Contains(s));
         }
 
+        // Filtrar y ordenar ANTES de proyectar al DTO (EF no traduce el orden sobre el DTO)
         return await Project(query.OrderByDescending(t => t.CreatedAt).Take(200)).ToListAsync(ct);
     }
 
@@ -96,7 +97,7 @@ public sealed class AdminController(AppDbContext db, UserManager<AppUser> users)
         await tx.CommitAsync(ct);
 
         var dto = new TenantDto(tenant.Id, tenant.Name, tenant.Slug, tenant.TaxId, tenant.Plan,
-            tenant.IsActive, tenant.CreatedAt, PropertyCount: 0, UserCount: 1);
+            tenant.IsActive, tenant.CreatedAt, PropertyCount: 0, UserCount: 1, WhatsApp: tenant.WhatsApp);
 
         return CreatedAtAction(nameof(GetTenant), new { id = tenant.Id }, new TenantCreatedDto(dto, admin.Id));
     }
@@ -110,6 +111,7 @@ public sealed class AdminController(AppDbContext db, UserManager<AppUser> users)
         tenant.Name = req.Name.Trim();
         tenant.TaxId = req.TaxId?.Trim();
         tenant.Plan = req.Plan;
+        tenant.WhatsApp = req.WhatsApp?.Trim();
         tenant.IsActive = req.IsActive; // desactivar impide nuevos logins y nuevas altas (los tokens vigentes caducan solos)
 
         await db.SaveChangesAsync(ct);
@@ -181,14 +183,12 @@ public sealed class AdminController(AppDbContext db, UserManager<AppUser> users)
     // ---------------------------------------------------------------
     //  Helpers
     // ---------------------------------------------------------------
-    private IQueryable<TenantDto> Project(IQueryable<Tenant> query) =>
-        query.AsNoTracking().Select(t => new TenantDto(
+    private IQueryable<TenantDto> Project(IQueryable<Tenant> source) =>
+        source.AsNoTracking().Select(t => new TenantDto(
             t.Id, t.Name, t.Slug, t.TaxId, t.Plan, t.IsActive, t.CreatedAt,
-            db.Properties.Count(p => p.TenantId == t.Id),
-            db.Users.Count(u => u.TenantId == t.Id)));
-
-    private IQueryable<TenantDto> TenantProjection() =>
-        Project(db.Tenants);
+            db.Properties.Count(p => p.TenantId == t.Id),   // excluye borradas (filtro SoftDelete)
+            db.Users.Count(u => u.TenantId == t.Id),
+            t.WhatsApp));
 
     private ActionResult IdentityProblem(IdentityResult result)
     {

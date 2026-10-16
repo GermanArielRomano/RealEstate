@@ -89,7 +89,7 @@ public sealed class PropertyForm
 // ---------- Administración (SuperAdmin) ----------
 public sealed record TenantItem(
     Guid Id, string Name, string Slug, string? TaxId, string Plan, bool IsActive,
-    DateTimeOffset CreatedAt, int PropertyCount, int UserCount);
+    DateTimeOffset CreatedAt, int PropertyCount, int UserCount, string? WhatsApp);
 
 public sealed record TenantCreated(TenantItem Tenant, Guid AdminUserId);
 public sealed record TenantUser(Guid Id, string Email, string FullName, bool IsActive, string? Role);
@@ -111,6 +111,7 @@ public sealed class TenantEditForm
     [Required(ErrorMessage = "El nombre es obligatorio."), StringLength(200)] public string Name { get; set; } = "";
     [StringLength(30)] public string? TaxId { get; set; }
     public string Plan { get; set; } = "Free";
+    [StringLength(32)] public string? WhatsApp { get; set; }
     public bool IsActive { get; set; } = true;
 }
 

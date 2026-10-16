@@ -1,0 +1,225 @@
+@using System.Globalization
+@inject PublicApi Api
+@inject FavoritesService Favs
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudButton Href="./" Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.ArrowBack" Class="mb-4 ms-n2">
+    Volver a propiedades
+</MudButton>
+
+@if (loading)
+{
+    <MudStack AlignItems="AlignItems.Center" Class="py-16">
+        <MudProgressCircular Indeterminate="true" />
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">Si el servidor estaba inactivo puede tardar hasta 1 minuto.</MudText>
+    </MudStack>
+}
+else if (error is not null)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+            <span>@error</span>
+            <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Reintentar</MudButton>
+        </MudStack>
+    </MudAlert>
+}
+else if (detail is null)
+{
+    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="py-16">
+        <MudIcon Icon="@Icons.Material.Outlined.HomeWork" Style="font-size:4rem" Class="mud-text-secondary" />
+        <MudText Typo="Typo.h6">Esta propiedad ya no está disponible</MudText>
+        <MudButton Href="./" Variant="Variant.Filled" Color="Color.Primary">Ver otras propiedades</MudButton>
+    </MudStack>
+}
+else
+{
+    <PageTitle>@detail.Title</PageTitle>
+
+    <MudGrid Spacing="6">
+        <MudItem xs="12" md="8">
+            <MudStack Spacing="6">
+
+                <!-- Galería -->
+                @if (detail.Images.Count > 0)
+                {
+                    <MudCarousel ItemsSource="detail.Images" TData="PublicImage" AutoCycle="false"
+                                 ShowArrows="@(detail.Images.Count > 1)" ShowBullets="@(detail.Images.Count > 1)"
+                                 Style="height:420px; border-radius:12px; overflow:hidden">
+                        <ItemTemplate>
+                            <MudImage Src="@context.Url" Alt="@detail.Title" ObjectFit="ObjectFit.Cover" Style="width:100%; height:100%" />
+                        </ItemTemplate>
+                    </MudCarousel>
+                }
+                else
+                {
+                    <div class="d-flex align-center justify-center"
+                         style="height:420px; border-radius:12px; background: var(--mud-palette-background-gray)">
+                        <MudIcon Icon="@Icons.Material.Outlined.HomeWork" Style="font-size:5rem" Class="mud-text-secondary" />
+                    </div>
+                }
+
+                <!-- Precio y dirección -->
+                <MudStack Spacing="2">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Wrap="Wrap.Wrap" Spacing="2">
+                        <MudText Typo="Typo.h4" Style="font-weight:600">@Catalog.Headline(detail.Operation, detail.Price, detail.Currency)</MudText>
+                        <MudStack Row="true" Spacing="1">
+                            <MudIconButton Icon="@(Favs.IsFavorite(detail.Id) ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)"
+                                           Color="@(Favs.IsFavorite(detail.Id) ? Color.Error : Color.Default)"
+                                           OnClick="ToggleFavoriteAsync" aria-label="Favorito" />
+                            <MudIconButton Icon="@Icons.Material.Outlined.Share" OnClick="ShareAsync" aria-label="Compartir" />
+                        </MudStack>
+                    </MudStack>
+
+                    <MudText Typo="Typo.h6" Style="font-weight:500">@detail.Title</MudText>
+
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Start" Class="mud-text-secondary">
+                        <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" Class="mt-1" />
+                        <MudText Typo="Typo.body1">@AddressText</MudText>
+                    </MudStack>
+                </MudStack>
+
+                <MudDivider />
+
+                <!-- Características -->
+                <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:28px 16px">
+                    @foreach (var s in SpecItems())
+                    {
+                        <Spec Icon="@s.Icon" Text="@s.Text" Large="true" />
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(detail.Description))
+                {
+                    <MudDivider />
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.h6">Descripción</MudText>
+                        <MudText Typo="Typo.body1" Style="white-space:pre-line">@detail.Description</MudText>
+                    </MudStack>
+                }
+
+                <!-- Mapa (OpenStreetMap, gratis y sin clave) -->
+                @if (MapUrl is not null)
+                {
+                    <MudDivider />
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.h6">Ubicación</MudText>
+                        <iframe src="@MapUrl" title="Mapa" loading="lazy"
+                                style="width:100%; height:300px; border:0; border-radius:12px"></iframe>
+                        <MudLink Href="@BigMapUrl" Target="_blank" Typo="Typo.caption">Ver mapa más grande</MudLink>
+                    </MudStack>
+                }
+            </MudStack>
+        </MudItem>
+
+        <!-- Contacto -->
+        <MudItem xs="12" md="4">
+            <MudPaper Outlined="true" Elevation="0" Class="pa-6" Style="position:sticky; top:88px">
+                <MudText Typo="Typo.overline" Class="mud-text-secondary">Publicado por</MudText>
+                <MudText Typo="Typo.h6" Class="mb-4">@detail.AgencyName</MudText>
+
+                @if (WhatsAppLink is not null)
+                {
+                    <MudButton Href="@WhatsAppLink" Target="_blank" Variant="Variant.Filled" Color="Color.Success"
+                               Size="Size.Large" FullWidth="true" StartIcon="@Icons.Material.Outlined.Chat">
+                        Consultar por WhatsApp
+                    </MudButton>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Esta inmobiliaria todavía no cargó un medio de contacto.
+                    </MudText>
+                }
+
+                <MudText Typo="Typo.caption" Class="mud-text-secondary mt-4 d-block">Código de referencia: @detail.Code</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter, EditorRequired] public Guid PropertyId { get; set; }
+
+    private PublicDetail? detail;
+    private bool loading = true;
+    private string? error;
+    private Guid loadedId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (loadedId == PropertyId) return;
+        loadedId = PropertyId;
+        await Favs.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            detail = await Api.GetDetailAsync(PropertyId);
+        }
+        catch (ApiException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string AddressText =>
+        string.Join(", ", new[] { detail!.Street, detail.City, detail.Province }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    private IEnumerable<(string Icon, string Text)> SpecItems()
+    {
+        var d = detail!;
+        if (d.AreaM2 > 0) yield return (Icons.Material.Outlined.Straighten, $"{d.AreaM2:0.#} m² tot.");
+        if (d.CoveredAreaM2 is > 0) yield return (Icons.Material.Outlined.AspectRatio, $"{d.CoveredAreaM2:0.#} m² cub.");
+        if (d.Rooms > 0) yield return (Icons.Material.Outlined.MeetingRoom, $"{d.Rooms} amb.");
+        if (d.Bedrooms > 0) yield return (Icons.Material.Outlined.Bed, $"{d.Bedrooms} dorm.");
+        if (d.Bathrooms > 0) yield return (Icons.Material.Outlined.Bathtub, $"{d.Bathrooms} {(d.Bathrooms == 1 ? "baño" : "baños")}");
+        if (d.Garages > 0) yield return (Icons.Material.Outlined.DirectionsCar, $"{d.Garages} coch.");
+        if (d.HalfBaths > 0) yield return (Icons.Material.Outlined.Wc, $"{d.HalfBaths} toilette{(d.HalfBaths == 1 ? "" : "s")}");
+        if (Catalog.AgeText(d.AgeYears) is { } age) yield return (Icons.Material.Outlined.CalendarToday, age);
+    }
+
+    // ---- Mapa ----
+    private static string F(double v) => v.ToString("0.#####", CultureInfo.InvariantCulture);
+
+    private string? MapUrl => detail is { Latitude: { } lat, Longitude: { } lon }
+        ? $"https://www.openstreetmap.org/export/embed.html?bbox={F(lon - 0.004)}%2C{F(lat - 0.003)}%2C{F(lon + 0.004)}%2C{F(lat + 0.003)}&layer=mapnik&marker={F(lat)}%2C{F(lon)}"
+        : null;
+
+    private string? BigMapUrl => detail is { Latitude: { } lat, Longitude: { } lon }
+        ? $"https://www.openstreetmap.org/?mlat={F(lat)}&mlon={F(lon)}#map=17/{F(lat)}/{F(lon)}"
+        : null;
+
+    // ---- Contacto y compartir ----
+    private string PageUrl => Nav.ToAbsoluteUri($"?id={detail!.Id}").ToString();
+
+    private string? WhatsAppLink
+    {
+        get
+        {
+            var digits = new string((detail!.AgencyWhatsApp ?? "").Where(char.IsDigit).ToArray());
+            if (digits.Length < 8) return null;
+
+            var text = $"Hola, me interesa la propiedad {detail.Code} ({detail.Title}). {PageUrl}";
+            return $"https://wa.me/{digits}?text={Uri.EscapeDataString(text)}";
+        }
+    }
+
+    private async Task ToggleFavoriteAsync() => await Favs.ToggleAsync(detail!.Id);
+
+    private async Task ShareAsync()
+    {
+        var outcome = await JS.InvokeAsync<string>("reShare", detail!.Title, PageUrl);
+        if (outcome == "copied") Snackbar.Add("Enlace copiado.", Severity.Info);
+    }
+}

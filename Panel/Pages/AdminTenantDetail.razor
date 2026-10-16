@@ -43,6 +43,8 @@
                         <MudStack Spacing="3">
                             <MudTextField @bind-Value="form.Name" For="() => form.Name" Label="Nombre" Variant="Variant.Outlined" />
                             <MudTextField @bind-Value="form.TaxId" For="() => form.TaxId" Label="CUIT" Variant="Variant.Outlined" />
+                            <MudTextField @bind-Value="form.WhatsApp" For="() => form.WhatsApp" Label="WhatsApp de contacto" Variant="Variant.Outlined"
+                                          HelperText="Con código de país, solo números. Ej: 5493415551234" />
                             <MudSelect T="string" @bind-Value="form.Plan" Label="Plan" Variant="Variant.Outlined">
                                 @foreach (var p in Catalog.Plans) { <MudSelectItem T="string" Value="@p.Value">@p.Label</MudSelectItem> }
                             </MudSelect>
@@ -128,7 +130,7 @@
         try
         {
             tenant = await Api.GetTenantAsync(Id);
-            form = new TenantEditForm { Name = tenant.Name, TaxId = tenant.TaxId, Plan = tenant.Plan, IsActive = tenant.IsActive };
+            form = new TenantEditForm { Name = tenant.Name, TaxId = tenant.TaxId, Plan = tenant.Plan, WhatsApp = tenant.WhatsApp, IsActive = tenant.IsActive };
             users = await Api.ListTenantUsersAsync(Id);
         }
         catch (ApiException ex)

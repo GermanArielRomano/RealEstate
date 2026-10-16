@@ -1,0 +1,82 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject FavoritesService Favs
+@inject IJSRuntime JS
+
+<MudThemeProvider Theme="_theme" @bind-IsDarkMode="_isDark" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Class="px-2 px-sm-6" Style="border-bottom: 1px solid var(--mud-palette-lines-default);">
+        <MudLink Href="./" Underline="Underline.None" Color="Color.Inherit" Style="font-size:1.1rem; font-weight:600">
+            🏠 Inmobiliarias
+        </MudLink>
+        <MudSpacer />
+
+        <MudBadge Content="@Favs.Count" Visible="@(Favs.Count > 0)" Color="Color.Primary" Overlap="true">
+            <MudIconButton Icon="@Icons.Material.Outlined.FavoriteBorder" Href="?view=favs" Color="Color.Inherit" aria-label="Mis favoritos" />
+        </MudBadge>
+        <MudIconButton Icon="@(_isDark ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)"
+                       Color="Color.Inherit" OnClick="ToggleThemeAsync" aria-label="Cambiar tema" />
+    </MudAppBar>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="py-8 px-4 px-sm-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private const string ThemeKey = "re_theme";
+    private bool _isDark = true;
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#3B6FE0", Background = "#F7F8FA", Surface = "#FFFFFF",
+            AppbarBackground = "#F7F8FA", AppbarText = "#1B1D21",
+            TextPrimary = "#1B1D21", TextSecondary = "#6B7078",
+            LinesDefault = "#E4E6EA", Divider = "#E4E6EA"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#7BA4FF", Background = "#0E1013", Surface = "#16181D",
+            AppbarBackground = "#0E1013", AppbarText = "#E8EAED", DrawerBackground = "#0E1013",
+            TextPrimary = "#E8EAED", TextSecondary = "#9AA0A6",
+            LinesDefault = "#262A31", Divider = "#262A31"
+        },
+        LayoutProperties = new LayoutProperties { DefaultBorderRadius = "12px" },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = ["Inter", "system-ui", "sans-serif"] }
+        }
+    };
+
+    protected override void OnInitialized() => Favs.Changed += OnFavoritesChanged;
+
+    private void OnFavoritesChanged() => InvokeAsync(StateHasChanged);
+
+    // Tema: lo que eligió el comprador; si nunca eligió, el del sistema operativo
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var saved = await JS.InvokeAsync<string?>("localStorage.getItem", ThemeKey);
+        _isDark = saved is null ? await JS.InvokeAsync<bool>("reTheme.prefersDark") : saved == "dark";
+        StateHasChanged();
+
+        await Favs.EnsureLoadedAsync();
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        _isDark = !_isDark;
+        await JS.InvokeVoidAsync("localStorage.setItem", ThemeKey, _isDark ? "dark" : "light");
+    }
+
+    public void Dispose() => Favs.Changed -= OnFavoritesChanged;
+}

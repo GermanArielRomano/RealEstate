@@ -1,0 +1,68 @@
+<MudCard Outlined="true" Elevation="0" Class="d-flex flex-column" Style="min-width:0">
+
+    <div style="position:relative">
+        <a href="@Link" style="display:block" aria-label="@Item.Title">
+            @if (Item.CoverThumbnailUrl is not null)
+            {
+                <MudCardMedia Image="@Item.CoverThumbnailUrl" Height="200" />
+            }
+            else
+            {
+                <div class="d-flex align-center justify-center" style="height:200px; background: var(--mud-palette-background-gray)">
+                    <MudIcon Icon="@Icons.Material.Outlined.HomeWork" Style="font-size:3rem" Class="mud-text-secondary" />
+                </div>
+            }
+        </a>
+
+        <MudChip T="string" Size="Size.Small"
+                 Style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,.65); color:#fff; border:1px solid rgba(255,255,255,.2)">
+            @Catalog.Label(Catalog.Operations, Item.Operation)
+        </MudChip>
+
+        <MudIconButton Icon="@(IsFavorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)"
+                       Size="Size.Small" Style="@HeartStyle" aria-label="Favorito"
+                       OnClick="() => OnToggleFavorite.InvokeAsync(Item.Id)" />
+    </div>
+
+    <MudCardContent Class="pa-5 flex-grow-1">
+        <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight:600">
+            @Catalog.Price(Item.Price, Item.Currency)
+        </MudText>
+
+        <a href="@Link" style="text-decoration:none">
+            <MudText Typo="Typo.body1" Class="mt-1"
+                     Style="display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:3em">
+                @Item.Title
+            </MudText>
+        </a>
+
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mt-3 mud-text-secondary">
+            <MudIcon Icon="@Icons.Material.Outlined.Place" Size="Size.Small" />
+            <MudText Typo="Typo.body2">@Item.City · @Catalog.Label(Catalog.Types, Item.Type)</MudText>
+        </MudStack>
+
+        <div class="mt-4" style="display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:4px; min-height:64px">
+            @if (Item.Rooms > 0) { <Spec Icon="@Icons.Material.Outlined.MeetingRoom" Text="@(N(Item.Rooms, "amb.", "amb."))" /> }
+            @if (Item.Bedrooms > 0) { <Spec Icon="@Icons.Material.Outlined.Bed" Text="@(N(Item.Bedrooms, "dorm.", "dorm."))" /> }
+            @if (Item.Bathrooms > 0) { <Spec Icon="@Icons.Material.Outlined.Bathtub" Text="@(N(Item.Bathrooms, "baño", "baños"))" /> }
+            @if (Item.Garages > 0) { <Spec Icon="@Icons.Material.Outlined.DirectionsCar" Text="@(N(Item.Garages, "coch.", "coch."))" /> }
+            @if (Item.AreaM2 > 0) { <Spec Icon="@Icons.Material.Outlined.Straighten" Text="@($"{Item.AreaM2:0.#} m²")" /> }
+        </div>
+
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mt-3">@Item.AgencyName</MudText>
+    </MudCardContent>
+</MudCard>
+
+@code {
+    [Parameter, EditorRequired] public PublicListItem Item { get; set; } = default!;
+    [Parameter] public bool IsFavorite { get; set; }
+    [Parameter] public EventCallback<Guid> OnToggleFavorite { get; set; }
+
+    // Enlace relativo: Blazor navega sin recargar y mantiene el estado de la lista
+    private string Link => $"?id={Item.Id}";
+
+    private string HeartStyle =>
+        $"position:absolute; top:8px; right:8px; background:rgba(0,0,0,.45); color:{(IsFavorite ? "#ff6b81" : "#ffffff")}";
+
+    private static string N(int n, string one, string many) => $"{n} {(n == 1 ? one : many)}";
+}

@@ -1,0 +1,249 @@
+@page "/"
+@inject PublicApi Api
+@inject FavoritesService Favs
+
+<PageTitle>Inmobiliarias</PageTitle>
+
+@* Un solo "route": con ?id=... se muestra el detalle; sin él, el listado. Así no hacen falta rutas profundas
+   (GitHub Pages no las soporta sin trucos) y cada propiedad tiene su enlace para compartir. *@
+@if (Id is { } id)
+{
+    <PropertyDetail PropertyId="id" />
+}
+else
+{
+    <MudStack Spacing="1" Class="mb-8">
+        <MudText Typo="Typo.h4" Style="font-weight:600">@(IsFavs ? "Mis favoritos" : "Encuentra tu próxima propiedad")</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">@Subtitle</MudText>
+    </MudStack>
+
+    @if (!IsFavs)
+    {
+        <MudStack Spacing="3" Class="mb-8">
+            <MudGrid Spacing="2">
+                <MudItem xs="12" md="5">
+                    <MudTextField @bind-Value="filter.Search" Label="Buscar por zona, calle o título"
+                                  Variant="Variant.Outlined" Margin="Margin.None" Clearable="true"
+                                  Immediate="true" DebounceInterval="500" OnDebounceIntervalElapsed="SearchAsync"
+                                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
+                </MudItem>
+                <MudItem xs="6" md="2">
+                    <MudSelect T="string" @bind-Value="filter.Operation" @bind-Value:after="SearchAsync" Label="Operación"
+                               Variant="Variant.Outlined" Margin="Margin.None" Clearable="true">
+                        @foreach (var o in Catalog.Operations) { <MudSelectItem T="string" Value="@o.Value">@o.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="6" md="2">
+                    <MudSelect T="string" @bind-Value="filter.Type" @bind-Value:after="SearchAsync" Label="Tipo"
+                               Variant="Variant.Outlined" Margin="Margin.None" Clearable="true">
+                        @foreach (var t in Catalog.Types) { <MudSelectItem T="string" Value="@t.Value">@t.Label</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="3">
+                    <MudSelect T="string" @bind-Value="filter.City" @bind-Value:after="SearchAsync" Label="Ciudad"
+                               Variant="Variant.Outlined" Margin="Margin.None" Clearable="true">
+                        @foreach (var c in cities) { <MudSelectItem T="string" Value="@c">@c</MudSelectItem> }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <div>
+                <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Tune"
+                           OnClick="() => showAdvanced = !showAdvanced">
+                    @(showAdvanced ? "Ocultar filtros" : "Más filtros")
+                </MudButton>
+            </div>
+
+            <MudCollapse Expanded="showAdvanced">
+                <MudGrid Spacing="2">
+                    <MudItem xs="6" md="2">
+                        <MudSelect T="int?" @bind-Value="filter.MinBedrooms" @bind-Value:after="SearchAsync" Label="Dormitorios"
+                                   Variant="Variant.Outlined" Margin="Margin.None" Clearable="true">
+                            @foreach (var n in new int?[] { 1, 2, 3, 4 }) { <MudSelectItem T="int?" Value="n">@n+</MudSelectItem> }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="6" md="2">
+                        <MudSelect T="string" @bind-Value="filter.Currency" @bind-Value:after="SearchAsync" Label="Moneda"
+                                   Variant="Variant.Outlined" Margin="Margin.None">
+                            @foreach (var c in Catalog.Currencies) { <MudSelectItem T="string" Value="@c.Value">@c.Label</MudSelectItem> }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="6" md="2">
+                        <MudNumericField T="decimal?" @bind-Value="filter.MinPrice" @bind-Value:after="SearchAsync" Label="Precio mínimo"
+                                         Variant="Variant.Outlined" Margin="Margin.None" HideSpinButtons="true" Min="0m" />
+                    </MudItem>
+                    <MudItem xs="6" md="2">
+                        <MudNumericField T="decimal?" @bind-Value="filter.MaxPrice" @bind-Value:after="SearchAsync" Label="Precio máximo"
+                                         Variant="Variant.Outlined" Margin="Margin.None" HideSpinButtons="true" Min="0m" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudSelect T="string" @bind-Value="filter.Sort" @bind-Value:after="SearchAsync" Label="Ordenar por"
+                                   Variant="Variant.Outlined" Margin="Margin.None">
+                            @foreach (var s in Catalog.Sorts) { <MudSelectItem T="string" Value="@s.Value">@s.Label</MudSelectItem> }
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            </MudCollapse>
+        </MudStack>
+    }
+
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-6">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                <span>@error</span>
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Reintentar</MudButton>
+            </MudStack>
+        </MudAlert>
+    }
+
+    @if (loading)
+    {
+        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+            Cargando… si el servidor estaba inactivo puede tardar hasta 1 minuto.
+        </MudText>
+        <div class="mt-3" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:24px">
+            @for (var i = 0; i < 6; i++)
+            {
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="360px" Style="border-radius:12px" />
+            }
+        </div>
+    }
+    else if (error is null && (result is null || result.Items.Count == 0))
+    {
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="py-16">
+            <MudIcon Icon="@(IsFavs ? Icons.Material.Outlined.FavoriteBorder : Icons.Material.Outlined.HomeWork)"
+                     Style="font-size:4rem" Class="mud-text-secondary" />
+            <MudText Typo="Typo.h6">@(IsFavs ? "Todavía no guardaste favoritos" : "No encontramos propiedades")</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @(IsFavs ? "Toca el corazón en las propiedades que te interesen." : "Prueba con otros filtros.")
+            </MudText>
+            @if (IsFavs)
+            {
+                <MudButton Href="./" Variant="Variant.Filled" Color="Color.Primary" Class="mt-2">Ver propiedades</MudButton>
+            }
+            else if (HasFilters)
+            {
+                <MudButton Variant="Variant.Text" OnClick="ClearFiltersAsync">Limpiar filtros</MudButton>
+            }
+        </MudStack>
+    }
+    else if (result is not null)
+    {
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); grid-auto-rows:1fr; gap:24px">
+            @foreach (var p in result.Items)
+            {
+                <PropertyCard Item="p" IsFavorite="Favs.IsFavorite(p.Id)" OnToggleFavorite="ToggleFavoriteAsync" />
+            }
+        </div>
+
+        @if (result.TotalPages > 1)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="mt-8">
+                <MudPagination Count="result.TotalPages" Selected="filter.Page" SelectedChanged="GoToAsync"
+                               Variant="Variant.Text" Color="Color.Primary" />
+            </MudStack>
+        }
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "id")] public Guid? Id { get; set; }
+    [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
+
+    private readonly SearchFilter filter = new();
+    private PagedResult<PublicListItem>? result;
+    private List<string> cities = [];
+    private bool loading, showAdvanced;
+    private string? error;
+    private string? loadedView;
+    private bool citiesRequested;
+
+    private bool IsFavs => View == "favs";
+
+    private bool HasFilters =>
+        !string.IsNullOrWhiteSpace(filter.Search) || filter.Operation is not null || filter.Type is not null ||
+        filter.City is not null || filter.MinBedrooms is not null || filter.MinPrice is not null || filter.MaxPrice is not null;
+
+    private string Subtitle => result is null
+        ? (IsFavs ? "Las propiedades que guardaste" : "Propiedades en venta y alquiler")
+        : $"{result.TotalCount} {(result.TotalCount == 1 ? "propiedad" : "propiedades")}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is not null) return;   // en el detalle, la lista queda tal cual para volver sin recargar
+
+        if (!citiesRequested)
+        {
+            citiesRequested = true;
+            _ = LoadCitiesAsync();
+        }
+
+        var view = IsFavs ? "favs" : "list";
+        if (loadedView == view) return;
+        loadedView = view;
+        filter.Page = 1;
+
+        await Favs.EnsureLoadedAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadCitiesAsync()
+    {
+        try { cities = (await Api.FiltersAsync()).Cities; }
+        catch (ApiException) { /* el filtro de ciudad es opcional */ }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            result = IsFavs
+                ? (Favs.Count == 0
+                    ? new PagedResult<PublicListItem>([], 1, filter.PageSize, 0)
+                    : await Api.ByIdsAsync(Favs.All, filter.Page))
+                : await Api.SearchAsync(filter);
+        }
+        catch (ApiException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private Task SearchAsync()
+    {
+        filter.Page = 1;
+        return LoadAsync();
+    }
+
+    private Task GoToAsync(int page)
+    {
+        filter.Page = page;
+        return LoadAsync();
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        filter.Search = null;
+        filter.Operation = null;
+        filter.Type = null;
+        filter.City = null;
+        filter.MinBedrooms = null;
+        filter.MinPrice = null;
+        filter.MaxPrice = null;
+        return SearchAsync();
+    }
+
+    private async Task ToggleFavoriteAsync(Guid id)
+    {
+        await Favs.ToggleAsync(id);
+        if (IsFavs) await LoadAsync();   // en "Mis favoritos", al quitar uno desaparece de la lista
+    }
+}
