@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -35,7 +36,8 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
     [HttpGet("properties")]
     public async Task<ActionResult<PagedResult<PublicListItemDto>>> List([FromQuery] PublicListQuery q, CancellationToken ct)
     {
-        var props = ApplyFilters(BaseProperties(), q);
+        var (props, zoneError) = await ApplyZoneAsync(ApplyFilters(BaseProperties(), q), q, ct);
+        if (props is null) return Problem(statusCode: 400, title: zoneError);
 
         var joined = props.Join(ActiveTenants(), p => p.TenantId, t => t.Id,
             (p, t) => new { p, AgencyName = t.Name });
@@ -120,10 +122,12 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
     // ------------------------------------------------------------------
     /// <summary>Pines del mapa (máx. 300) con los mismos filtros que el listado. Sin paginar.</summary>
     [HttpGet("map")]
-    public async Task<PublicMapDto> Map([FromQuery] PublicListQuery q, CancellationToken ct)
+    public async Task<ActionResult<PublicMapDto>> Map([FromQuery] PublicListQuery q, CancellationToken ct)
     {
-        var matching = ApplyFilters(BaseProperties(), q)
-            .Join(ActiveTenants(), p => p.TenantId, t => t.Id, (p, t) => p);
+        var (filtered, zoneError) = await ApplyZoneAsync(ApplyFilters(BaseProperties(), q), q, ct);
+        if (filtered is null) return Problem(statusCode: 400, title: zoneError);
+
+        var matching = filtered.Join(ActiveTenants(), p => p.TenantId, t => t.Id, (p, t) => p);
         var located = matching.Where(p => p.Latitude != null && p.Longitude != null);
 
         var total = await matching.CountAsync(ct);
@@ -137,6 +141,67 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
             .ToListAsync(ct);
 
         return new PublicMapDto(points, total, locatedCount);
+    }
+
+    // ------------------------------------------------------------------
+    /// <summary>
+    /// Zona dibujada: la base de datos descarta rápido todo lo que queda fuera del rectángulo que contiene el dibujo
+    /// y aquí se comprueba, punto por punto, cuáles caen realmente dentro. Devuelve la consulta ya acotada a esos ids.
+    /// Suficiente para miles de propiedades; si la plataforma crece se reemplaza por PostGIS sin cambiar la API.
+    /// </summary>
+    private static async Task<(IQueryable<Property>? Props, string? Error)> ApplyZoneAsync(
+        IQueryable<Property> props, PublicListQuery q, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(q.Polygon)) return (props, null);
+
+        var poly = ParsePolygon(q.Polygon);
+        if (poly is null) return (null, "La zona dibujada no es válida.");
+
+        var south = poly.Min(v => v.Lat);
+        var north = poly.Max(v => v.Lat);
+        var west = poly.Min(v => v.Lon);
+        var east = poly.Max(v => v.Lon);
+
+        var candidates = await props
+            .Where(p => p.Latitude >= south && p.Latitude <= north && p.Longitude >= west && p.Longitude <= east)
+            .Select(p => new { p.Id, Lat = p.Latitude!.Value, Lon = p.Longitude!.Value })
+            .Take(5000)
+            .ToListAsync(ct);
+
+        var ids = candidates.Where(c => Inside(poly, c.Lat, c.Lon)).Select(c => c.Id).ToList();
+        return (props.Where(p => ids.Contains(p.Id)), null);
+    }
+
+    private static List<(double Lat, double Lon)>? ParsePolygon(string raw)
+    {
+        var vertices = new List<(double, double)>();
+        foreach (var part in raw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var xy = part.Split(',');
+            if (xy.Length != 2 ||
+                !double.TryParse(xy[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var lat) ||
+                !double.TryParse(xy[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var lon) ||
+                lat is < -90 or > 90 || lon is < -180 or > 180)
+                return null;
+
+            vertices.Add((lat, lon));
+        }
+
+        return vertices.Count is >= 3 and <= 100 ? vertices : null;
+    }
+
+    /// <summary>Punto dentro de polígono (trazado de rayos).</summary>
+    private static bool Inside(List<(double Lat, double Lon)> poly, double lat, double lon)
+    {
+        var inside = false;
+        for (int i = 0, j = poly.Count - 1; i < poly.Count; j = i++)
+        {
+            var (yi, xi) = poly[i];
+            var (yj, xj) = poly[j];
+            if ((yi > lat) != (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)
+                inside = !inside;
+        }
+        return inside;
     }
 
     // ------------------------------------------------------------------

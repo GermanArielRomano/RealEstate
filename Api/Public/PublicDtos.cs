@@ -24,6 +24,9 @@ public sealed class PublicListQuery
     [Range(-180, 180)] public double? MinLon { get; init; }
     [Range(-180, 180)] public double? MaxLon { get; init; }
 
+    // Zona dibujada (o círculo "cerca de mí" convertido a polígono): "lat,lon;lat,lon;..." (3 a 100 vértices)
+    [StringLength(6000)] public string? Polygon { get; init; }
+
     [StringLength(2000)] public string? Ids { get; init; }   // ids separados por coma (favoritos)
 
     public PublicSort Sort { get; init; } = PublicSort.Newest;

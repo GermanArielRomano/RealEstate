@@ -50,7 +50,11 @@ public sealed class SearchFilter
     public double? MinLon { get; set; }
     public double? MaxLon { get; set; }
 
-    public bool HasZone => MinLat is not null && MaxLat is not null && MinLon is not null && MaxLon is not null;
+    // Zona dibujada o círculo "cerca de mí": "lat,lon;lat,lon;..."
+    public string? Polygon { get; set; }
+
+    public bool HasBounds => MinLat is not null && MaxLat is not null && MinLon is not null && MaxLon is not null;
+    public bool HasZone => HasBounds || Polygon is not null;
 }
 
 public static class Catalog

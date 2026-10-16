@@ -1,14 +1,35 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
 <div style="position:relative">
     <div id="@_id" style="height:68vh; min-height:420px; border-radius:12px; overflow:hidden; border:1px solid var(--mud-palette-lines-default)"></div>
 
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-               StartIcon="@Icons.Material.Outlined.Search" OnClick="SearchAreaAsync"
-               Style="position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:1000">
-        Buscar en esta zona
-    </MudButton>
+    <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:1000; width:max-content; max-width:94%">
+        @if (drawing)
+        {
+            <MudPaper Elevation="3" Class="px-4 py-2 d-flex align-center" Style="gap:12px; border-radius:999px">
+                <MudText Typo="Typo.body2">Dibuja con el dedo o el mouse un área cerrada</MudText>
+                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="CancelDrawAsync">Cancelar</MudButton>
+            </MudPaper>
+        }
+        else
+        {
+            <MudStack Row="true" Spacing="1" Justify="Justify.Center" Wrap="Wrap.Wrap">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Outlined.Search" OnClick="SearchAreaAsync">Buscar en esta zona</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Default" Size="Size.Small"
+                           StartIcon="@Icons.Material.Outlined.Draw" OnClick="StartDrawAsync">Dibujar zona</MudButton>
+                <MudMenu Label="Cerca de mí" StartIcon="@Icons.Material.Outlined.MyLocation"
+                         Variant="Variant.Filled" Color="Color.Default" Size="Size.Small">
+                    @foreach (var km in new[] { 1, 2, 5, 10 })
+                    {
+                        <MudMenuItem OnClick="() => NearMeAsync(km)">@km km a la redonda</MudMenuItem>
+                    }
+                </MudMenu>
+            </MudStack>
+        }
+    </div>
 
     @if (Loading)
     {
@@ -17,29 +38,41 @@
 </div>
 
 @code {
+    private sealed record LocateResult(double? Lat, double? Lon, string? Error);
+
     [Parameter] public IReadOnlyList<MapPoint>? Points { get; set; }
     [Parameter] public bool Loading { get; set; }
 
     /// <summary>true: encuadra el mapa en los pines; false: respeta la zona que eligió el comprador.</summary>
     [Parameter] public bool FitToPoints { get; set; } = true;
 
+    /// <summary>Zona activa ("lat,lon;lat,lon;...") para dibujarla; null = sin zona.</summary>
+    [Parameter] public string? Polygon { get; set; }
+
     /// <summary>Entrega [sur, oeste, norte, este] del área visible.</summary>
     [Parameter] public EventCallback<double[]> OnSearchArea { get; set; }
 
+    /// <summary>Entrega los vértices [[lat, lon], ...] de la zona dibujada o del círculo "cerca de mí".</summary>
+    [Parameter] public EventCallback<List<double[]>> OnPolygon { get; set; }
+
     private readonly string _id = $"map-{Guid.NewGuid():N}";
-    private bool _ready;
+    private DotNetObjectReference<PropertyMap>? _ref;
+    private bool _ready, drawing;
     private IReadOnlyList<MapPoint>? _drawn;
+    private string? _zoneApplied;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            await JS.InvokeVoidAsync("reMap.init", _id);
+            _ref = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("reMap.init", _id, _ref);
             _ready = true;
         }
+        if (!_ready) return;
 
         // Solo se redibuja cuando llega una lista nueva de puntos
-        if (_ready && Points is not null && !ReferenceEquals(_drawn, Points))
+        if (Points is not null && !ReferenceEquals(_drawn, Points))
         {
             _drawn = Points;
 
@@ -56,17 +89,91 @@
 
             await JS.InvokeVoidAsync("reMap.setMarkers", _id, items, FitToPoints);
         }
+
+        // La zona se dibuja (o se quita) cuando cambia
+        if (_zoneApplied != Polygon)
+        {
+            _zoneApplied = Polygon;
+            await JS.InvokeVoidAsync("reMap.setZone", _id, ToLatLngs(Polygon), true);
+        }
     }
 
+    // ---------------- Buscar en esta zona ----------------
     private async Task SearchAreaAsync()
     {
         var bounds = await JS.InvokeAsync<double[]?>("reMap.getBounds", _id);
         if (bounds is { Length: 4 }) await OnSearchArea.InvokeAsync(bounds);
     }
 
+    // ---------------- Dibujo ----------------
+    private async Task StartDrawAsync()
+    {
+        drawing = true;
+        await JS.InvokeVoidAsync("reMap.startDraw", _id);
+    }
+
+    private async Task CancelDrawAsync()
+    {
+        await JS.InvokeVoidAsync("reMap.cancelDraw", _id);
+        drawing = false;
+    }
+
+    /// <summary>Lo invoca el JavaScript al soltar el dedo con un trazo válido.</summary>
+    [JSInvokable]
+    public async Task OnPolygonDrawn(double[][] vertices) => await OnPolygon.InvokeAsync(vertices.ToList());
+
+    /// <summary>Lo invoca el JavaScript al terminar el trazo (válido o no).</summary>
+    [JSInvokable]
+    public void OnDrawEnded()
+    {
+        drawing = false;
+        StateHasChanged();
+    }
+
+    // ---------------- Cerca de mí ----------------
+    private async Task NearMeAsync(int km)
+    {
+        var r = await JS.InvokeAsync<LocateResult>("reMap.locate");
+        if (r.Error is not null || r.Lat is null || r.Lon is null)
+        {
+            Snackbar.Add(r.Error == "denied"
+                ? "Permite el acceso a tu ubicación en el navegador para usar esta función."
+                : "No pudimos obtener tu ubicación.", Severity.Warning);
+            return;
+        }
+
+        await JS.InvokeVoidAsync("reMap.showMe", _id, r.Lat, r.Lon);
+        await OnPolygon.InvokeAsync(Circle(r.Lat.Value, r.Lon.Value, km));
+    }
+
+    // Círculo aproximado con 48 vértices: así el servidor solo necesita saber filtrar por polígono
+    private static List<double[]> Circle(double lat, double lon, double km, int vertices = 48)
+    {
+        var dLat = km / 111.32;
+        var dLon = km / (111.32 * Math.Cos(lat * Math.PI / 180));
+        return Enumerable.Range(0, vertices).Select(i =>
+        {
+            var angle = 2 * Math.PI * i / vertices;
+            return new[] { lat + dLat * Math.Sin(angle), lon + dLon * Math.Cos(angle) };
+        }).ToList();
+    }
+
+    private static double[][]? ToLatLngs(string? polygon)
+    {
+        if (string.IsNullOrWhiteSpace(polygon)) return null;
+
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return polygon.Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(v => v.Split(','))
+            .Where(xy => xy.Length == 2)
+            .Select(xy => new[] { double.Parse(xy[0], inv), double.Parse(xy[1], inv) })
+            .ToArray();
+    }
+
     public async ValueTask DisposeAsync()
     {
         try { await JS.InvokeVoidAsync("reMap.dispose", _id); }
         catch (JSException) { /* el mapa ya no existe */ }
+        _ref?.Dispose();
     }
 }

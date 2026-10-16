@@ -74,13 +74,15 @@ public sealed class PublicApi(HttpClient http)
             if (f.MaxPrice is { } max) qs.Add($"MaxPrice={max.ToString(inv)}");
         }
 
-        if (f.HasZone)
+        if (f.HasBounds)
         {
             qs.Add($"MinLat={f.MinLat!.Value.ToString(inv)}");
             qs.Add($"MaxLat={f.MaxLat!.Value.ToString(inv)}");
             qs.Add($"MinLon={f.MinLon!.Value.ToString(inv)}");
             qs.Add($"MaxLon={f.MaxLon!.Value.ToString(inv)}");
         }
+
+        if (!string.IsNullOrWhiteSpace(f.Polygon)) qs.Add($"Polygon={Uri.EscapeDataString(f.Polygon)}");
 
         return qs;
     }

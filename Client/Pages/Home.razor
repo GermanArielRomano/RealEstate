@@ -121,7 +121,8 @@ else
             </MudAlert>
         }
 
-        <PropertyMap Points="mapResult?.Points" Loading="mapLoading" FitToPoints="!filter.HasZone" OnSearchArea="SearchAreaAsync" />
+        <PropertyMap Points="mapResult?.Points" Loading="mapLoading" FitToPoints="!filter.HasZone"
+                     Polygon="filter.Polygon" OnSearchArea="SearchAreaAsync" OnPolygon="PolygonChosenAsync" />
 
         @if (MapNotice is not null)
         {
@@ -328,12 +329,23 @@ else
     private Task SearchAreaAsync(double[] bounds)
     {
         (filter.MinLat, filter.MinLon, filter.MaxLat, filter.MaxLon) = (bounds[0], bounds[1], bounds[2], bounds[3]);
+        filter.Polygon = null;
+        return SearchAsync();
+    }
+
+    // vertices = [[lat, lon], ...] del dibujo a mano alzada o del círculo "cerca de mí"
+    private Task PolygonChosenAsync(List<double[]> vertices)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        filter.Polygon = string.Join(';', vertices.Select(v => $"{v[0].ToString("0.######", inv)},{v[1].ToString("0.######", inv)}"));
+        filter.MinLat = filter.MaxLat = filter.MinLon = filter.MaxLon = null;
         return SearchAsync();
     }
 
     private Task ClearZoneAsync()
     {
         filter.MinLat = filter.MaxLat = filter.MinLon = filter.MaxLon = null;
+        filter.Polygon = null;
         return SearchAsync();
     }
 
@@ -347,6 +359,7 @@ else
         filter.MinPrice = null;
         filter.MaxPrice = null;
         filter.MinLat = filter.MaxLat = filter.MinLon = filter.MaxLon = null;
+        filter.Polygon = null;
         return SearchAsync();
     }
 
