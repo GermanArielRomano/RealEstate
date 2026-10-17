@@ -1,6 +1,9 @@
 @page "/"
 @inject PublicApi Api
 @inject FavoritesService Favs
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
 
 <PageTitle>Inmobiliarias</PageTitle>
 
@@ -20,7 +23,8 @@ else
 
         @if (!IsFavs)
         {
-            <MudStack Row="true" Spacing="1">
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                <MudIconButton Icon="@Icons.Material.Outlined.Share" OnClick="ShareSearchAsync" aria-label="Compartir esta búsqueda" />
                 <MudButton Variant="@(mapMode ? Variant.Outlined : Variant.Filled)" Color="Color.Primary"
                            StartIcon="@Icons.Material.Outlined.ViewList" OnClick="() => SetModeAsync(false)">Lista</MudButton>
                 <MudButton Variant="@(mapMode ? Variant.Filled : Variant.Outlined)" Color="Color.Primary"
@@ -196,6 +200,22 @@ else
     [SupplyParameterFromQuery(Name = "id")] public Guid? Id { get; set; }
     [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
 
+    // Búsqueda en la dirección (enlace compartible): se leen UNA vez al abrir la página
+    [SupplyParameterFromQuery(Name = "q")] public string? Q { get; set; }
+    [SupplyParameterFromQuery(Name = "op")] public string? Op { get; set; }
+    [SupplyParameterFromQuery(Name = "tipo")] public string? Tipo { get; set; }
+    [SupplyParameterFromQuery(Name = "ciudad")] public string? Ciudad { get; set; }
+    [SupplyParameterFromQuery(Name = "dorm")] public int? Dorm { get; set; }
+    [SupplyParameterFromQuery(Name = "mon")] public string? Mon { get; set; }
+    [SupplyParameterFromQuery(Name = "pmin")] public decimal? PMin { get; set; }
+    [SupplyParameterFromQuery(Name = "pmax")] public decimal? PMax { get; set; }
+    [SupplyParameterFromQuery(Name = "orden")] public string? Orden { get; set; }
+    [SupplyParameterFromQuery(Name = "vista")] public string? Vista { get; set; }
+    [SupplyParameterFromQuery(Name = "zona")] public string? Zona { get; set; }
+    [SupplyParameterFromQuery(Name = "poly")] public string? Poly { get; set; }
+
+    private bool queryApplied;
+
     private readonly SearchFilter filter = new();
     private PagedResult<PublicListItem>? result;
     private MapResult? mapResult;
@@ -241,13 +261,127 @@ else
         }
 
         var view = IsFavs ? "favs" : "list";
-        if (loadedView == view) return;
+        if (loadedView == view) { SyncUrl(); return; }   // p. ej. al volver del detalle: se restauran los filtros en la dirección
         loadedView = view;
         filter.Page = 1;
+        if (!IsFavs) ApplyQueryOnce();
         if (IsFavs) mapMode = false;
 
         await Favs.EnsureLoadedAsync();
-        await LoadAsync();
+        if (mapMode) await LoadMapAsync(); else await LoadAsync();
+        SyncUrl();
+    }
+
+    // ---------------- Búsqueda <-> dirección (enlaces compartibles) ----------------
+
+    /// <summary>Convierte los parámetros de la dirección en filtros. Todo se valida: la dirección la puede escribir cualquiera.</summary>
+    private void ApplyQueryOnce()
+    {
+        if (queryApplied) return;
+        queryApplied = true;
+
+        filter.Search = Clean(Q);
+        filter.Operation = Pick(Op, Catalog.Operations);
+        filter.Type = Pick(Tipo, Catalog.Types);
+        filter.City = Clean(Ciudad);
+        filter.MinBedrooms = Dorm is >= 1 and <= 10 ? Dorm : null;
+        if (Mon is "ARS" or "USD") filter.Currency = Mon;
+        filter.MinPrice = PMin is >= 0 ? PMin : null;
+        filter.MaxPrice = PMax is >= 0 ? PMax : null;
+        filter.Sort = Pick(Orden, Catalog.Sorts) ?? "Newest";
+
+        if (ParseBounds(Zona) is { } b)
+            (filter.MinLat, filter.MinLon, filter.MaxLat, filter.MaxLon) = b;
+        filter.Polygon = ValidPolygon(Poly);
+
+        mapMode = Vista == "mapa";
+        showAdvanced = filter.MinBedrooms is not null || filter.MinPrice is not null ||
+                       filter.MaxPrice is not null || filter.Sort != "Newest";
+    }
+
+    /// <summary>Dirección con la búsqueda actual. Solo lleva lo que se apartó de los valores por defecto.</summary>
+    private string BuildSearchUri()
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var priceFilter = filter.MinPrice is not null || filter.MaxPrice is not null;
+
+        var parameters = new Dictionary<string, object?>
+        {
+            ["q"] = string.IsNullOrWhiteSpace(filter.Search) ? null : filter.Search.Trim(),
+            ["op"] = filter.Operation,
+            ["tipo"] = filter.Type,
+            ["ciudad"] = filter.City,
+            ["dorm"] = filter.MinBedrooms,
+            ["mon"] = priceFilter && filter.Currency != "USD" ? filter.Currency : null,
+            ["pmin"] = filter.MinPrice,
+            ["pmax"] = filter.MaxPrice,
+            ["orden"] = filter.Sort == "Newest" ? null : filter.Sort,
+            ["vista"] = mapMode ? "mapa" : null,
+            ["zona"] = filter.HasBounds
+                ? string.Join(',', new[] { filter.MinLat!.Value, filter.MinLon!.Value, filter.MaxLat!.Value, filter.MaxLon!.Value }
+                    .Select(v => v.ToString("0.######", inv)))
+                : null,
+            ["poly"] = filter.Polygon
+        };
+
+        return Nav.GetUriWithQueryParameters(parameters);
+    }
+
+    /// <summary>Refleja la búsqueda en la dirección del navegador (sin agregar pasos al historial).</summary>
+    private void SyncUrl()
+    {
+        if (!queryApplied || Id is not null || IsFavs) return;
+
+        var uri = BuildSearchUri();
+        if (new Uri(uri).Equals(new Uri(Nav.Uri))) return;   // evita navegar en bucle
+        Nav.NavigateTo(uri, replace: true);
+    }
+
+    private async Task ShareSearchAsync()
+    {
+        var outcome = await JS.InvokeAsync<string>("reShare", "Búsqueda de propiedades", BuildSearchUri());
+        if (outcome == "copied") Snackbar.Add("Enlace de la búsqueda copiado.", Severity.Info);
+    }
+
+    private static string? Pick(string? value, (string Value, string Label)[] options) =>
+        options.Any(o => o.Value == value) ? value : null;
+
+    private static string? Clean(string? s) =>
+        string.IsNullOrWhiteSpace(s) ? null : (s.Trim().Length > 100 ? s.Trim()[..100] : s.Trim());
+
+    private static (double South, double West, double North, double East)? ParseBounds(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var p = raw.Split(',');
+        if (p.Length != 4 ||
+            !double.TryParse(p[0], System.Globalization.NumberStyles.Float, inv, out var s) ||
+            !double.TryParse(p[1], System.Globalization.NumberStyles.Float, inv, out var w) ||
+            !double.TryParse(p[2], System.Globalization.NumberStyles.Float, inv, out var n) ||
+            !double.TryParse(p[3], System.Globalization.NumberStyles.Float, inv, out var e))
+            return null;
+
+        return s is >= -90 and <= 90 && n is >= -90 and <= 90 && w is >= -180 and <= 180 && e is >= -180 and <= 180 && s < n && w < e
+            ? (s, w, n, e) : null;
+    }
+
+    private static string? ValidPolygon(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+        var vertices = raw.Split(';', StringSplitOptions.RemoveEmptyEntries);
+        if (vertices.Length is < 3 or > 100) return null;
+
+        foreach (var v in vertices)
+        {
+            var xy = v.Split(',');
+            if (xy.Length != 2 ||
+                !double.TryParse(xy[0], System.Globalization.NumberStyles.Float, inv, out var lat) || lat is < -90 or > 90 ||
+                !double.TryParse(xy[1], System.Globalization.NumberStyles.Float, inv, out var lon) || lon is < -180 or > 180)
+                return null;
+        }
+        return raw;
     }
 
     private async Task LoadCitiesAsync()
@@ -303,12 +437,14 @@ else
     private async Task RefreshActiveAsync()
     {
         listStale = mapStale = true;
+        SyncUrl();
         if (mapMode) await LoadMapAsync(); else await LoadAsync();
     }
 
     private async Task SetModeAsync(bool map)
     {
         mapMode = map;
+        SyncUrl();
         if (map && mapStale) await LoadMapAsync();
         if (!map && listStale) await LoadAsync();
     }

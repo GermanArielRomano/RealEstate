@@ -1,0 +1,23 @@
+name: Verificar compilación
+
+# Compila los tres proyectos en cada push: si hay un error de código, lo ves aquí (X roja) y en el log
+# antes de que alguien abra la app. Es gratis y no despliega nada.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: API
+        run: dotnet build Api/RealEstate.Api.csproj -c Release
+      - name: Panel
+        run: dotnet build Panel/RealEstate.Panel.csproj -c Release
+      - name: App de compradores
+        run: dotnet build Client/RealEstate.Client.csproj -c Release
