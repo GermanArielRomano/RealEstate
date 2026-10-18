@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace RealEstate.Client.Models;
 
 // Espejo de los DTOs públicos de la API; los enums llegan como string
@@ -29,6 +31,30 @@ public sealed record MapPoint(
     decimal Price, string Currency, int Bedrooms, decimal AreaM2);
 
 public sealed record MapResult(List<MapPoint> Points, int TotalMatching, int Located);
+
+public sealed class InquiryForm : IValidatableObject
+{
+    [Required(ErrorMessage = "Escribe tu nombre."), StringLength(100, MinimumLength = 2, ErrorMessage = "Escribe tu nombre.")]
+    public string? Name { get; set; }
+
+    [EmailAddress(ErrorMessage = "El correo no es válido."), StringLength(200)]
+    public string? Email { get; set; }
+
+    [StringLength(30)] public string? Phone { get; set; }
+    [StringLength(1000, ErrorMessage = "Máximo 1000 caracteres.")] public string? Message { get; set; }
+
+    /// <summary>Trampa para robots: queda invisible; una persona nunca lo completa.</summary>
+    public string? Website { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext context)
+    {
+        var digits = (Phone ?? "").Count(char.IsDigit);
+        if (string.IsNullOrWhiteSpace(Email) && digits == 0)
+            yield return new ValidationResult("Indica un correo o un teléfono para que puedan responderte.", [nameof(Email)]);
+        else if (digits is > 0 and < 7)
+            yield return new ValidationResult("El teléfono no es válido.", [nameof(Phone)]);
+    }
+}
 
 public sealed class SearchFilter
 {

@@ -87,6 +87,25 @@ public sealed class ApiClient(HttpClient http, AuthService auth)
             JsonContent.Create(new { isActive }, options: Json))).Dispose();
 
     // =====================================================================
+    //  Consultas de compradores
+    // =====================================================================
+    public Task<PagedResult<LeadItem>> ListLeadsAsync(string? status, int page, CancellationToken ct = default)
+    {
+        var url = $"api/leads?Page={page}&PageSize=20";
+        if (!string.IsNullOrWhiteSpace(status)) url += $"&status={status}";
+        return GetAsync<PagedResult<LeadItem>>(url, ct);
+    }
+
+    public Task<LeadSummary> LeadSummaryAsync(CancellationToken ct = default) =>
+        GetAsync<LeadSummary>("api/leads/summary", ct);
+
+    public async Task SetLeadStatusAsync(Guid id, string status) =>
+        (await SendAsync(HttpMethod.Put, $"api/leads/{id}/status", JsonContent.Create(new { status }, options: Json))).Dispose();
+
+    public async Task DeleteLeadAsync(Guid id) =>
+        (await SendAsync(HttpMethod.Delete, $"api/leads/{id}")).Dispose();
+
+    // =====================================================================
     //  Cuenta
     // =====================================================================
     public async Task ChangePasswordAsync(ChangePasswordForm form) =>

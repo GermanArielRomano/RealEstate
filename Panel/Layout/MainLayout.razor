@@ -1,4 +1,6 @@
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject ApiClient Api
 @inject AuthService Auth
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -22,6 +24,9 @@
                     </AuthorizeView>
                     <AuthorizeView Roles="TenantAdmin,Agent" Context="socio">
                         <MudButton Href="properties" Variant="Variant.Text" Color="Color.Inherit">Propiedades</MudButton>
+                        <MudBadge Content="@LeadBadge.NewCount" Visible="@(LeadBadge.NewCount > 0)" Color="Color.Error" Overlap="true" Class="mx-2">
+                            <MudButton Href="consultas" Variant="Variant.Text" Color="Color.Inherit">Consultas</MudButton>
+                        </MudBadge>
                     </AuthorizeView>
                 </MudStack>
             </Authorized>
@@ -109,6 +114,24 @@
         _isDark = saved != "light";
         await ApplyBootstrapThemeAsync();
         StateHasChanged();
+        await LeadBadge.RefreshAsync(Api, Auth);
+    }
+
+    protected override void OnInitialized()
+    {
+        LeadBadge.Changed += OnBadgeChanged;
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnBadgeChanged() => InvokeAsync(StateHasChanged);
+
+    // Al navegar (también justo después de iniciar sesión) se actualiza el numerito de consultas nuevas
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => _ = LeadBadge.RefreshAsync(Api, Auth);
+
+    public void Dispose()
+    {
+        LeadBadge.Changed -= OnBadgeChanged;
+        Nav.LocationChanged -= OnLocationChanged;
     }
 
     private async Task ToggleThemeAsync()

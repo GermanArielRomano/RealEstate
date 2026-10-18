@@ -29,6 +29,13 @@ public sealed record PropertyDetail(
     Guid? OwnerId, Guid? AssignedAgentId,
     List<PropertyImage> Images, DateTimeOffset CreatedAt, DateTimeOffset? UpdatedAt);
 
+public sealed record LeadItem(
+    Guid Id, DateTimeOffset CreatedAt, string Status, string? Message,
+    Guid PropertyId, string PropertyCode, string PropertyTitle,
+    string ContactName, string? ContactEmail, string? ContactPhone, string? AssignedAgentName);
+
+public sealed record LeadSummary(int NewCount);
+
 public sealed record UploadFailure(string FileName, string Reason);
 public sealed record UploadResult(List<PropertyImage> Uploaded, List<UploadFailure> Failed);
 
@@ -168,4 +175,28 @@ public static class Catalog
     }
 
     public static string Date(DateTimeOffset d) => d.ToString("dd/MM/yyyy");
+
+    public static readonly (string Value, string Label)[] LeadStatuses =
+        [("New", "Nueva"), ("Contacted", "Contactada"), ("Qualified", "Calificada"), ("Closed", "Cerrada"), ("Lost", "Perdida")];
+
+    /// <summary>"hace 5 min", "hace 3 h", "hace 2 días"; pasado una semana, la fecha.</summary>
+    public static string Ago(DateTimeOffset d)
+    {
+        var span = DateTimeOffset.UtcNow - d;
+        if (span.TotalMinutes < 1) return "recién";
+        if (span.TotalMinutes < 60) return $"hace {(int)span.TotalMinutes} min";
+        if (span.TotalHours < 24) return $"hace {(int)span.TotalHours} h";
+        if (span.TotalDays < 7) return $"hace {(int)span.TotalDays} {((int)span.TotalDays == 1 ? "día" : "días")}";
+        return Date(d);
+    }
+
+    /// <summary>Número para wa.me (formato internacional). Heurística para Argentina: celular con código de área => 549 + número.</summary>
+    public static string? WhatsAppNumber(string? phone)
+    {
+        var d = new string((phone ?? "").Where(char.IsDigit).ToArray()).TrimStart('0');
+        if (d.Length < 8) return null;
+        if (d.StartsWith("54")) return d;                          // ya trae el código de país
+        if (d.StartsWith('9') && d.Length == 11) return "54" + d;  // 9 + código de área + número
+        return d.Length <= 11 ? "549" + d : d;
+    }
 }

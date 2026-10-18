@@ -39,3 +39,6 @@ a { color: inherit; }
     background: #3b6fe0; color: #fff; font: 600 13px Inter, system-ui, sans-serif;
     border: 3px solid rgba(255, 255, 255, .9); box-shadow: 0 2px 8px rgba(0, 0, 0, .4); cursor: pointer;
 }
+
+/* Campo trampa para robots (fuera de pantalla; las personas no lo ven ni lo tocan) */
+.re-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }

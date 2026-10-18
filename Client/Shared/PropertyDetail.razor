@@ -120,18 +120,50 @@ else
                 <MudText Typo="Typo.overline" Class="mud-text-secondary">Publicado por</MudText>
                 <MudText Typo="Typo.h6" Class="mb-4">@detail.AgencyName</MudText>
 
-                @if (WhatsAppLink is not null)
+                @if (sent)
                 {
-                    <MudButton Href="@WhatsAppLink" Target="_blank" Variant="Variant.Filled" Color="Color.Success"
-                               Size="Size.Large" FullWidth="true" StartIcon="@Icons.Material.Outlined.Chat">
-                        Consultar por WhatsApp
-                    </MudButton>
+                    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-3">
+                        ¡Listo! <b>@detail.AgencyName</b> recibió tu consulta y te responderá a la brevedad.
+                    </MudAlert>
+
+                    @if (WhatsAppLink is not null)
+                    {
+                        <MudButton Href="@WhatsAppLink" Target="_blank" Variant="Variant.Outlined" Color="Color.Success"
+                                   FullWidth="true" StartIcon="@Icons.Material.Outlined.Chat">Seguir por WhatsApp</MudButton>
+                    }
+                    <MudButton Variant="Variant.Text" FullWidth="true" Class="mt-2" OnClick="() => sent = false">Enviar otra consulta</MudButton>
                 }
                 else
                 {
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                        Esta inmobiliaria todavía no cargó un medio de contacto.
-                    </MudText>
+                    <EditForm Model="form" OnValidSubmit="SendInquiryAsync">
+                        <DataAnnotationsValidator />
+                        <MudStack Spacing="2">
+                            <MudTextField @bind-Value="form.Name" For="() => form.Name" Label="Tu nombre"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudTextField @bind-Value="form.Email" For="() => form.Email" Label="Correo"
+                                          InputType="InputType.Email" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudTextField @bind-Value="form.Phone" For="() => form.Phone" Label="Teléfono (opcional)"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          HelperText="Con código de área, sin 0 ni 15. Ej: 3415551234" />
+                            <MudTextField @bind-Value="form.Message" For="() => form.Message" Label="Mensaje"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Lines="3" />
+
+                            <input class="re-hp" tabindex="-1" autocomplete="off" aria-hidden="true" @bind="form.Website" />
+
+                            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary"
+                                       Size="Size.Large" FullWidth="true" Disabled="@sending">
+                                @if (sending) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" /> }
+                                Consultar
+                            </MudButton>
+                        </MudStack>
+                    </EditForm>
+
+                    @if (WhatsAppLink is not null)
+                    {
+                        <MudDivider Class="my-4" />
+                        <MudButton Href="@WhatsAppLink" Target="_blank" Variant="Variant.Outlined" Color="Color.Success"
+                                   FullWidth="true" StartIcon="@Icons.Material.Outlined.Chat">Prefiero WhatsApp</MudButton>
+                    }
                 }
 
                 <MudText Typo="Typo.caption" Class="mud-text-secondary mt-4 d-block">Código de referencia: @detail.Code</MudText>
@@ -163,6 +195,7 @@ else
         try
         {
             detail = await Api.GetDetailAsync(PropertyId);
+            if (detail is not null) await PrepareFormAsync();
         }
         catch (ApiException ex)
         {
@@ -171,6 +204,51 @@ else
         finally
         {
             loading = false;
+        }
+    }
+
+    // ---- Consulta a la inmobiliaria ----
+    private readonly InquiryForm form = new();
+    private bool sending, sent;
+
+    private sealed record SavedContact(string? Name, string? Email, string? Phone);
+
+    // El mensaje viene armado y, si el comprador ya consultó antes, también sus datos (se guardan solo en su navegador)
+    private async Task PrepareFormAsync()
+    {
+        sent = false;
+        form.Message = $"Hola, me interesa la propiedad {detail!.Code}. ¿Podemos coordinar una visita?";
+
+        try
+        {
+            var raw = await JS.InvokeAsync<string?>("localStorage.getItem", "re_contact");
+            if (!string.IsNullOrEmpty(raw) && System.Text.Json.JsonSerializer.Deserialize<SavedContact>(raw) is { } c)
+            {
+                form.Name ??= c.Name;
+                form.Email ??= c.Email;
+                form.Phone ??= c.Phone;
+            }
+        }
+        catch (Exception ex) when (ex is System.Text.Json.JsonException or JSException) { /* sin datos guardados */ }
+    }
+
+    private async Task SendInquiryAsync()
+    {
+        sending = true;
+        try
+        {
+            await Api.SendInquiryAsync(detail!.Id, form);
+            sent = true;
+            await JS.InvokeVoidAsync("localStorage.setItem", "re_contact",
+                System.Text.Json.JsonSerializer.Serialize(new SavedContact(form.Name, form.Email, form.Phone)));
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            sending = false;
         }
     }
 

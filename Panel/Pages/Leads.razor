@@ -1,0 +1,240 @@
+@page "/consultas"
+@attribute [Authorize(Roles = "TenantAdmin,Agent")]
+@inject ApiClient Api
+@inject AuthService Auth
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+
+<PageTitle>Consultas</PageTitle>
+
+<MudStack Spacing="8">
+
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.End" Wrap="Wrap.Wrap" Spacing="3">
+        <div>
+            <MudText Typo="Typo.h4" Style="font-weight:600">Consultas</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @(result is null ? "Personas interesadas en tus propiedades" : $"{result.TotalCount} {(result.TotalCount == 1 ? "consulta" : "consultas")}")
+            </MudText>
+        </div>
+        <div style="min-width:220px">
+            <MudSelect T="string" @bind-Value="status" @bind-Value:after="ReloadAsync" Label="Estado"
+                       Variant="Variant.Outlined" Margin="Margin.None" Clearable="true">
+                @foreach (var s in Catalog.LeadStatuses)
+                {
+                    <MudSelectItem T="string" Value="@s.Value">@s.Label</MudSelectItem>
+                }
+            </MudSelect>
+        </div>
+    </MudStack>
+
+    @if (error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                <span>@error</span>
+                <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="LoadAsync">Reintentar</MudButton>
+            </MudStack>
+        </MudAlert>
+    }
+
+    @if (loading)
+    {
+        <MudStack Spacing="3">
+            @for (var i = 0; i < 3; i++)
+            {
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="140px" Style="border-radius:12px" />
+            }
+        </MudStack>
+    }
+    else if (error is null && (result is null || result.Items.Count == 0))
+    {
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="py-16">
+            <MudIcon Icon="@Icons.Material.Outlined.MarkChatUnread" Style="font-size:4rem" Class="mud-text-secondary" />
+            <MudText Typo="Typo.h6">@(status is null ? "Todavía no hay consultas" : "No hay consultas con ese estado")</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                Cuando un comprador consulte por una de tus propiedades disponibles, aparecerá aquí.
+            </MudText>
+        </MudStack>
+    }
+    else if (result is not null)
+    {
+        <MudStack Spacing="3">
+            @foreach (var l in result.Items)
+            {
+                <MudPaper Outlined="true" Elevation="0" Class="pa-5">
+                    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Start">
+                        <MudAvatar Color="@(l.Status == "New" ? Color.Primary : Color.Default)">@Initials(l.ContactName)</MudAvatar>
+
+                        <MudStack Spacing="1" Style="min-width:0; flex:1">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+                                <MudText Style="font-weight:600">
+                                    @l.ContactName <span class="mud-text-secondary" style="font-weight:400">· @Catalog.Ago(l.CreatedAt)</span>
+                                </MudText>
+
+                                <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight">
+                                    <ActivatorContent>
+                                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(l.Status)" Style="cursor:pointer">
+                                            @Catalog.Label(Catalog.LeadStatuses, l.Status) ▾
+                                        </MudChip>
+                                    </ActivatorContent>
+                                    <ChildContent>
+                                        @foreach (var s in Catalog.LeadStatuses)
+                                        {
+                                            <MudMenuItem OnClick="() => SetStatusAsync(l, s.Value)">@s.Label</MudMenuItem>
+                                        }
+                                    </ChildContent>
+                                </MudMenu>
+                            </MudStack>
+
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                @string.Join(" · ", new[] { l.ContactEmail, l.ContactPhone }.Where(x => !string.IsNullOrWhiteSpace(x)))
+                            </MudText>
+
+                            <MudLink Href="@($"properties/{l.PropertyId}")" Typo="Typo.body2" Underline="Underline.Hover">
+                                @l.PropertyCode · @l.PropertyTitle
+                            </MudLink>
+
+                            @if (!string.IsNullOrWhiteSpace(l.Message))
+                            {
+                                <MudText Typo="Typo.body2" Class="mt-2" Style="white-space:pre-line">@l.Message</MudText>
+                            }
+
+                            @if (l.AssignedAgentName is not null)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">Asignada a @l.AssignedAgentName</MudText>
+                            }
+
+                            <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap" Class="mt-3">
+                                @if (WhatsAppLink(l) is { } wa)
+                                {
+                                    <MudButton Href="@wa" Target="_blank" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Success"
+                                               StartIcon="@Icons.Material.Outlined.Chat">WhatsApp</MudButton>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(l.ContactEmail))
+                                {
+                                    <MudButton Href="@MailLink(l)" Size="Size.Small" Variant="Variant.Outlined"
+                                               StartIcon="@Icons.Material.Outlined.Email">Correo</MudButton>
+                                }
+                                <MudSpacer />
+                                <MudIconButton Icon="@Icons.Material.Outlined.Delete" Color="Color.Error" Size="Size.Small"
+                                               aria-label="Eliminar consulta" OnClick="() => DeleteAsync(l)" />
+                            </MudStack>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+
+        @if (result.TotalPages > 1)
+        {
+            <MudStack AlignItems="AlignItems.Center">
+                <MudPagination Count="result.TotalPages" Selected="page" SelectedChanged="GoToAsync"
+                               Variant="Variant.Text" Color="Color.Primary" />
+            </MudStack>
+        }
+    }
+</MudStack>
+
+@code {
+    private PagedResult<LeadItem>? result;
+    private string? status;
+    private int page = 1;
+    private bool loading = true;
+    private string? error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        loading = true;
+        error = null;
+        try
+        {
+            result = await Api.ListLeadsAsync(status, page);
+        }
+        catch (ApiException ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private Task ReloadAsync()
+    {
+        page = 1;
+        return LoadAsync();
+    }
+
+    private Task GoToAsync(int p)
+    {
+        page = p;
+        return LoadAsync();
+    }
+
+    private async Task SetStatusAsync(LeadItem l, string newStatus)
+    {
+        if (l.Status == newStatus) return;
+        try
+        {
+            await Api.SetLeadStatusAsync(l.Id, newStatus);
+            await LoadAsync();
+            await LeadBadge.RefreshAsync(Api, Auth);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task DeleteAsync(LeadItem l)
+    {
+        var confirmed = await Dialogs.ShowMessageBox(
+            "Eliminar consulta", $"¿Eliminar la consulta de {l.ContactName}? Esta acción no se puede deshacer.",
+            yesText: "Eliminar", cancelText: "Cancelar");
+        if (confirmed != true) return;
+
+        try
+        {
+            await Api.DeleteLeadAsync(l.Id);
+            Snackbar.Add("Consulta eliminada.", Severity.Success);
+            await LoadAsync();
+            await LeadBadge.RefreshAsync(Api, Auth);
+        }
+        catch (ApiException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private string? WhatsAppLink(LeadItem l)
+    {
+        var number = Catalog.WhatsAppNumber(l.ContactPhone);
+        if (number is null) return null;
+
+        var first = l.ContactName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "";
+        var text = $"Hola {first}, te escribo de {Auth.User?.TenantName ?? "la inmobiliaria"} por tu consulta sobre {l.PropertyCode} ({l.PropertyTitle}).";
+        return $"https://wa.me/{number}?text={Uri.EscapeDataString(text)}";
+    }
+
+    private string MailLink(LeadItem l)
+    {
+        var subject = $"Tu consulta por {l.PropertyCode}";
+        var body = $"Hola {l.ContactName},\n\nGracias por tu consulta sobre \"{l.PropertyTitle}\".";
+        return $"mailto:{l.ContactEmail}?subject={Uri.EscapeDataString(subject)}&body={Uri.EscapeDataString(body)}";
+    }
+
+    private static string Initials(string name) => string.Concat(
+        name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpperInvariant(w[0])));
+
+    private static Color StatusColor(string s) => s switch
+    {
+        "New" => Color.Primary,
+        "Contacted" => Color.Info,
+        "Qualified" => Color.Warning,
+        "Closed" => Color.Success,
+        _ => Color.Default
+    };
+}

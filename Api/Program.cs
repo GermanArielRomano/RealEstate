@@ -84,6 +84,11 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("public", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1) }));
+
+    // Consultas de compradores: pocas por IP, para frenar el spam
+    o.AddPolicy("inquiry", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(10) }));
 });
 
 // ---------- MVC + imágenes + seed ----------

@@ -51,6 +51,51 @@ public sealed class PublicApi(HttpClient http)
         }
     }
 
+    /// <summary>Envía una consulta a la inmobiliaria dueña de la propiedad.</summary>
+    public async Task SendInquiryAsync(Guid propertyId, InquiryForm form, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await http.PostAsJsonAsync($"api/public/properties/{propertyId}/inquiries", form, Json, ct);
+            if (response.IsSuccessStatusCode) return;
+
+            throw new ApiException(response.StatusCode switch
+            {
+                HttpStatusCode.TooManyRequests => "Enviaste varias consultas seguidas. Espera unos minutos e inténtalo de nuevo.",
+                HttpStatusCode.NotFound => "Esta propiedad ya no está disponible.",
+                _ => await ReadErrorAsync(response) ?? "No pudimos enviar tu consulta. Inténtalo de nuevo."
+            });
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            throw new ApiException(Unreachable);
+        }
+    }
+
+    /// <summary>Mensaje legible del error de validación de la API (ProblemDetails), o null.</summary>
+    private static async Task<string?> ReadErrorAsync(HttpResponseMessage response)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Object)
+            {
+                var messages = errors.EnumerateObject()
+                    .Where(p => p.Value.ValueKind == JsonValueKind.Array)
+                    .SelectMany(p => p.Value.EnumerateArray().Select(e => e.GetString()))
+                    .Where(s => !string.IsNullOrWhiteSpace(s));
+                var joined = string.Join(" ", messages);
+                if (joined.Length > 0) return joined;
+            }
+
+            if (root.TryGetProperty("title", out var title) && title.GetString() is { Length: > 0 } t) return t;
+        }
+        catch (JsonException) { /* el cuerpo no era JSON */ }
+        return null;
+    }
+
     private static List<string> FilterParams(SearchFilter f)
     {
         var qs = new List<string> { $"Sort={f.Sort}" };
