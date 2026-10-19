@@ -148,3 +148,13 @@ public class Visit : TenantEntity
     public VisitStatus Status { get; set; } = VisitStatus.Scheduled;
     public string? Notes { get; set; }
 }
+
+/// <summary>Cada precio que tuvo una propiedad. El primer registro es el precio inicial (OldPrice = null).</summary>
+public class PriceChange : TenantEntity
+{
+    public Guid PropertyId { get; set; }
+    public Property Property { get; set; } = default!;
+    public decimal? OldPrice { get; set; }
+    public decimal NewPrice { get; set; }
+    public Currency Currency { get; set; }
+}

@@ -73,6 +73,14 @@ else
                         </MudStack>
                     </MudStack>
 
+                    @if (detail.PreviousPrice is { } before)
+                    {
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary" Style="text-decoration:line-through">@Catalog.Price(before, detail.Currency)</MudText>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success">@Catalog.DropText(before, detail.Price)</MudChip>
+                        </MudStack>
+                    }
+
                     <MudText Typo="Typo.h6" Style="font-weight:500">@detail.Title</MudText>
 
                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Start" Class="mud-text-secondary">
@@ -90,6 +98,33 @@ else
                         <Spec Icon="@s.Icon" Text="@s.Text" Large="true" />
                     }
                 </div>
+
+                @if (detail.PriceHistory.Count > 1)
+                {
+                    <MudDivider />
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.h6">Historial de precios</MudText>
+                        @foreach (var h in detail.PriceHistory)
+                        {
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                <MudText Typo="Typo.body2" Class="mud-text-secondary">@Catalog.Date(h.Date)</MudText>
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body1">@Catalog.Price(h.Price, h.Currency)</MudText>
+                                    @if (h.PreviousPrice is { } prev && prev > 0 && prev != h.Price)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="@(h.Price < prev ? Color.Success : Color.Warning)">
+                                            @(h.Price < prev ? "−" : "+")@Math.Round(Math.Abs(h.Price - prev) / prev * 100)%
+                                        </MudChip>
+                                    }
+                                    else if (h.PreviousPrice is null)
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary">Precio inicial</MudText>
+                                    }
+                                </MudStack>
+                            </MudStack>
+                        }
+                    </MudStack>
+                }
 
                 @if (!string.IsNullOrWhiteSpace(detail.Description))
                 {

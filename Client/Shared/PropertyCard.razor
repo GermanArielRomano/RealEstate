@@ -19,15 +19,27 @@
             @Catalog.Label(Catalog.Operations, Item.Operation)
         </MudChip>
 
+        @if (DropText is not null || Item.AgeYears == 0)
+        {
+            <MudStack Row="true" Spacing="1" Style="position:absolute; bottom:12px; left:12px">
+                @if (DropText is not null) { <MudChip T="string" Size="Size.Small" Color="Color.Success">@DropText</MudChip> }
+                @if (Item.AgeYears == 0) { <MudChip T="string" Size="Size.Small" Color="Color.Info">A estrenar</MudChip> }
+            </MudStack>
+        }
+
         <MudIconButton Icon="@(IsFavorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)"
                        Size="Size.Small" Style="@HeartStyle" aria-label="Favorito"
                        OnClick="() => OnToggleFavorite.InvokeAsync(Item.Id)" />
     </div>
 
     <MudCardContent Class="pa-5 flex-grow-1">
-        <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight:600">
-            @Catalog.Price(Item.Price, Item.Currency)
-        </MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Baseline">
+            <MudText Typo="Typo.h6" Color="Color.Primary" Style="font-weight:600">@Catalog.Price(Item.Price, Item.Currency)</MudText>
+            @if (Item.PreviousPrice is { } previous)
+            {
+                <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="text-decoration:line-through">@Catalog.Price(previous, Item.Currency)</MudText>
+            }
+        </MudStack>
 
         <a href="@Link" style="text-decoration:none">
             <MudText Typo="Typo.body1" Class="mt-1"
@@ -63,6 +75,8 @@
 
     private string HeartStyle =>
         $"position:absolute; top:8px; right:8px; background:rgba(0,0,0,.45); color:{(IsFavorite ? "#ff6b81" : "#ffffff")}";
+
+    private string? DropText => Catalog.DropText(Item.PreviousPrice, Item.Price);
 
     private static string N(int n, string one, string many) => $"{n} {(n == 1 ? one : many)}";
 }

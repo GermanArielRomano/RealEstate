@@ -133,6 +133,10 @@ public sealed class PropertiesController(
             entity.AssignedAgentId = uid;
 
         db.Properties.Add(entity);
+        db.PriceChanges.Add(new PriceChange   // precio inicial: base del historial
+        {
+            TenantId = tid.Value, PropertyId = entity.Id, OldPrice = null, NewPrice = entity.Price, Currency = entity.Currency
+        });
 
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateException ex) when (IsUniqueViolation(ex)) { return CodeConflict(); }
@@ -157,6 +161,17 @@ public sealed class PropertiesController(
         // Se valida contra el tenant DE LA PROPIEDAD (correcto también para el SuperAdmin)
         await ValidateReferencesAsync(req, entity.TenantId, ct);
         if (!ModelState.IsValid) return ValidationProblem(ModelState);
+
+        // Historial: se registra solo si cambió el precio o la moneda. Con otra moneda no hay "antes" comparable.
+        if (entity.Price != req.Price || entity.Currency != req.Currency)
+            db.PriceChanges.Add(new PriceChange
+            {
+                TenantId = entity.TenantId,
+                PropertyId = entity.Id,
+                OldPrice = entity.Currency == req.Currency ? entity.Price : null,
+                NewPrice = req.Price,
+                Currency = req.Currency
+            });
 
         Apply(entity, req);
 
@@ -262,6 +277,14 @@ public sealed class PropertiesController(
 
             if (created.Count > 0)
                 await db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex) when (ex is IOException or HttpRequestException or TaskCanceledException)
+        {
+            // Se responde con un error controlado: un 500 sin manejar llega al navegador sin encabezados CORS
+            // y se ve como "error de CORS" en lugar del mensaje real.
+            await TryDeleteFilesAsync(uploadedKeys);
+            logger.LogError(ex, "Falló la subida de imágenes de la propiedad {PropertyId}", id);
+            return Problem(statusCode: 502, title: "No se pudo guardar la imagen", detail: ex.Message);
         }
         catch
         {

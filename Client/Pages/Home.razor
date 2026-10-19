@@ -98,6 +98,10 @@ else
                             @foreach (var s in Catalog.Sorts) { <MudSelectItem T="string" Value="@s.Value">@s.Label</MudSelectItem> }
                         </MudSelect>
                     </MudItem>
+                    <MudItem xs="12">
+                        <MudSwitch T="bool" @bind-Value="filter.NewBuild" @bind-Value:after="SearchAsync"
+                                   Color="Color.Primary" Label="Solo propiedades a estrenar" />
+                    </MudItem>
                 </MudGrid>
             </MudCollapse>
 
@@ -213,6 +217,7 @@ else
     [SupplyParameterFromQuery(Name = "vista")] public string? Vista { get; set; }
     [SupplyParameterFromQuery(Name = "zona")] public string? Zona { get; set; }
     [SupplyParameterFromQuery(Name = "poly")] public string? Poly { get; set; }
+    [SupplyParameterFromQuery(Name = "estrenar")] public int? Estrenar { get; set; }
 
     private bool queryApplied;
 
@@ -231,7 +236,7 @@ else
     private bool HasFilters =>
         !string.IsNullOrWhiteSpace(filter.Search) || filter.Operation is not null || filter.Type is not null ||
         filter.City is not null || filter.MinBedrooms is not null || filter.MinPrice is not null ||
-        filter.MaxPrice is not null || filter.HasZone;
+        filter.MaxPrice is not null || filter.NewBuild || filter.HasZone;
 
     private string Subtitle
     {
@@ -289,6 +294,7 @@ else
         filter.MinPrice = PMin is >= 0 ? PMin : null;
         filter.MaxPrice = PMax is >= 0 ? PMax : null;
         filter.Sort = Pick(Orden, Catalog.Sorts) ?? "Newest";
+        filter.NewBuild = Estrenar == 1;
 
         if (ParseBounds(Zona) is { } b)
             (filter.MinLat, filter.MinLon, filter.MaxLat, filter.MaxLon) = b;
@@ -296,7 +302,7 @@ else
 
         mapMode = Vista == "mapa";
         showAdvanced = filter.MinBedrooms is not null || filter.MinPrice is not null ||
-                       filter.MaxPrice is not null || filter.Sort != "Newest";
+                       filter.MaxPrice is not null || filter.NewBuild || filter.Sort != "Newest";
     }
 
     /// <summary>Dirección con la búsqueda actual. Solo lleva lo que se apartó de los valores por defecto.</summary>
@@ -316,6 +322,7 @@ else
             ["pmin"] = filter.MinPrice,
             ["pmax"] = filter.MaxPrice,
             ["orden"] = filter.Sort == "Newest" ? null : filter.Sort,
+            ["estrenar"] = filter.NewBuild ? "1" : null,
             ["vista"] = mapMode ? "mapa" : null,
             ["zona"] = filter.HasBounds
                 ? string.Join(',', new[] { filter.MinLat!.Value, filter.MinLon!.Value, filter.MaxLat!.Value, filter.MaxLon!.Value }
@@ -494,6 +501,7 @@ else
         filter.MinBedrooms = null;
         filter.MinPrice = null;
         filter.MaxPrice = null;
+        filter.NewBuild = false;
         filter.MinLat = filter.MaxLat = filter.MinLon = filter.MaxLon = null;
         filter.Polygon = null;
         return SearchAsync();

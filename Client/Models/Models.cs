@@ -12,9 +12,11 @@ public sealed record PublicListItem(
     Guid Id, string Title, string Operation, string Type,
     decimal Price, string Currency, string City, string? Province,
     int Bedrooms, int Bathrooms, decimal AreaM2, decimal? CoveredAreaM2, int Rooms, int Garages,
-    string AgencyName, string? CoverThumbnailUrl);
+    string AgencyName, int? AgeYears, decimal? PreviousPrice, string? CoverThumbnailUrl);
 
 public sealed record PublicImage(string Url, string ThumbnailUrl);
+
+public sealed record PublicPriceChange(DateTimeOffset Date, decimal Price, string Currency, decimal? PreviousPrice);
 
 public sealed record PublicDetail(
     Guid Id, string Code, string Title, string? Description,
@@ -22,7 +24,8 @@ public sealed record PublicDetail(
     string Street, string City, string? Province, double? Latitude, double? Longitude,
     int Bedrooms, int Bathrooms, int HalfBaths, int Rooms, int Garages,
     decimal AreaM2, decimal? CoveredAreaM2, int? AgeYears,
-    string AgencyName, string? AgencyWhatsApp, List<PublicImage> Images);
+    string AgencyName, string? AgencyWhatsApp, List<PublicImage> Images,
+    decimal? PreviousPrice, List<PublicPriceChange> PriceHistory);
 
 public sealed record PublicFilters(List<string> Cities);
 
@@ -63,6 +66,7 @@ public sealed class SearchFilter
     public string? Type { get; set; }
     public string? City { get; set; }
     public int? MinBedrooms { get; set; }
+    public bool NewBuild { get; set; }
     public string Currency { get; set; } = "USD";
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
@@ -122,6 +126,12 @@ public static class Catalog
               : price.ToString("0", inv);
         return $"{symbol} {n}";
     }
+
+    public static string Date(DateTimeOffset d) => d.ToString("dd/MM/yyyy");
+
+    /// <summary>"Bajó 8%" a partir del precio anterior y el actual.</summary>
+    public static string? DropText(decimal? previous, decimal current) =>
+        previous is { } p && p > 0 ? $"Bajó {Math.Round((p - current) / p * 100):0}%" : null;
 
     public static string? AgeText(int? years) => years switch
     {

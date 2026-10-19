@@ -17,6 +17,7 @@ public sealed class PublicListQuery
     [Range(typeof(decimal), "0", "1000000000000")] public decimal? MinPrice { get; init; }
     [Range(typeof(decimal), "0", "1000000000000")] public decimal? MaxPrice { get; init; }
     [Range(0, 50)] public int? MinBedrooms { get; init; }
+    public bool? NewBuild { get; init; }   // solo propiedades a estrenar
 
     // Zona del mapa (rectángulo visible o que contiene el dibujo): sur, norte, oeste, este
     [Range(-90, 90)] public double? MinLat { get; init; }
@@ -39,9 +40,12 @@ public sealed record PublicListItemDto(
     Guid Id, string Title, OperationType Operation, PropertyType Type,
     decimal Price, Currency Currency, string City, string? Province,
     int Bedrooms, int Bathrooms, decimal AreaM2, decimal? CoveredAreaM2, int Rooms, int Garages,
-    string AgencyName, string? CoverThumbnailUrl);
+    string AgencyName, int? AgeYears, decimal? PreviousPrice, string? CoverThumbnailUrl);
 
 public sealed record PublicImageDto(string Url, string ThumbnailUrl);
+
+/// <summary>PreviousPrice = null en el precio inicial (o si cambió la moneda).</summary>
+public sealed record PublicPriceChangeDto(DateTimeOffset Date, decimal Price, Currency Currency, decimal? PreviousPrice);
 
 public sealed record PublicDetailDto(
     Guid Id, string Code, string Title, string? Description,
@@ -49,7 +53,8 @@ public sealed record PublicDetailDto(
     string Street, string City, string? Province, double? Latitude, double? Longitude,
     int Bedrooms, int Bathrooms, int HalfBaths, int Rooms, int Garages,
     decimal AreaM2, decimal? CoveredAreaM2, int? AgeYears,
-    string AgencyName, string? AgencyWhatsApp, IReadOnlyList<PublicImageDto> Images);
+    string AgencyName, string? AgencyWhatsApp, IReadOnlyList<PublicImageDto> Images,
+    decimal? PreviousPrice, IReadOnlyList<PublicPriceChangeDto> PriceHistory);
 
 public sealed record PublicFiltersDto(IReadOnlyList<string> Cities);
 

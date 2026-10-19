@@ -22,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
     public DbSet<Contact> Contacts => Set<Contact>();
     public DbSet<Lead> Leads => Set<Lead>();
     public DbSet<Visit> Visits => Set<Visit>();
+    public DbSet<PriceChange> PriceChanges => Set<PriceChange>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder builder)
     {
@@ -105,6 +106,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ICurrentTenant
             e.HasOne(v => v.Agent).WithMany()
              .HasForeignKey(v => v.AgentId).OnDelete(DeleteBehavior.Restrict);
             e.HasIndex(v => new { v.TenantId, v.AgentId, v.ScheduledAt });
+        });
+
+        builder.Entity<PriceChange>(e =>
+        {
+            e.HasOne(c => c.Property).WithMany().HasForeignKey(c => c.PropertyId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(c => new { c.PropertyId, c.CreatedAt });
         });
 
         ApplyGlobalFilters(builder);

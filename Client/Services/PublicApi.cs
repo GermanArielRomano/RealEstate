@@ -111,6 +111,7 @@ public sealed class PublicApi(HttpClient http)
         Add("City", f.City);
         Add("Search", f.Search);
         if (f.MinBedrooms is { } beds) qs.Add($"MinBedrooms={beds}");
+        if (f.NewBuild) qs.Add("NewBuild=true");
 
         if (f.MinPrice is not null || f.MaxPrice is not null)
         {

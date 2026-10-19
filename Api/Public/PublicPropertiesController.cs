@@ -55,7 +55,7 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
             .Select(x => new Row(x.p.Id, x.p.TenantId, x.p.Title, x.p.Operation, x.p.Type,
                 x.p.Price, x.p.Currency, x.p.City, x.p.Province,
                 x.p.Bedrooms, x.p.Bathrooms, x.p.AreaM2, x.p.CoveredAreaM2, x.p.Rooms, x.p.Garages,
-                x.AgencyName))
+                x.AgencyName, x.p.AgeYears))
             .ToListAsync(ct);
 
         // Portadas de la página en una sola consulta
@@ -68,9 +68,12 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
             .ToListAsync(ct);
         var coverByProperty = covers.GroupBy(c => c.PropertyId).ToDictionary(g => g.Key, g => g.First().Id);
 
+        var drops = await LoadPriceDropsAsync(rows.Select(r => (r.Id, r.Price, r.Currency)), ct);
+
         var items = rows.Select(r => new PublicListItemDto(
             r.Id, r.Title, r.Operation, r.Type, r.Price, r.Currency, r.City, r.Province,
             r.Bedrooms, r.Bathrooms, r.AreaM2, r.CoveredAreaM2, r.Rooms, r.Garages, r.AgencyName,
+            r.AgeYears, drops.TryGetValue(r.Id, out var previous) ? previous : (decimal?)null,
             coverByProperty.TryGetValue(r.Id, out var imageId)
                 ? storage.GetUrl(ImageKeys.Thumbnail(r.TenantId, r.Id, imageId))
                 : null)).ToList();
@@ -100,11 +103,20 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
             storage.GetUrl(ImageKeys.Main(p.TenantId, p.Id, img)),
             storage.GetUrl(ImageKeys.Thumbnail(p.TenantId, p.Id, img)))).ToList();
 
+        var history = await db.PriceChanges.AsNoTracking()
+            .IgnoreQueryFilters([AppDbContext.TenantFilter])
+            .Where(c => c.PropertyId == id)
+            .OrderByDescending(c => c.CreatedAt).ThenByDescending(c => c.Id)
+            .Take(10)
+            .Select(c => new PublicPriceChangeDto(c.CreatedAt, c.NewPrice, c.Currency, c.OldPrice))
+            .ToListAsync(ct);
+
         return new PublicDetailDto(
             p.Id, p.Code, p.Title, p.Description, p.Operation, p.Type, p.Price, p.Currency,
             p.Street, p.City, p.Province, p.Latitude, p.Longitude,
             p.Bedrooms, p.Bathrooms, p.HalfBaths, p.Rooms, p.Garages,
-            p.AreaM2, p.CoveredAreaM2, p.AgeYears, x.Name, x.WhatsApp, images);
+            p.AreaM2, p.CoveredAreaM2, p.AgeYears, x.Name, x.WhatsApp, images,
+            LatestDrop(history, p.Price, p.Currency), history);
     }
 
     // ------------------------------------------------------------------
@@ -211,6 +223,7 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
         if (q.Operation is { } op) props = props.Where(p => p.Operation == op);
         if (q.Type is { } type) props = props.Where(p => p.Type == type);
         if (q.MinBedrooms is { } beds) props = props.Where(p => p.Bedrooms >= beds);
+        if (q.NewBuild == true) props = props.Where(p => p.AgeYears == 0);
 
         if (!string.IsNullOrWhiteSpace(q.City))
         {
@@ -245,6 +258,40 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
     }
 
     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // "Bajó de precio": el último cambio (de los últimos 30 días, misma moneda) fue una baja y coincide con el precio actual.
+    private async Task<Dictionary<Guid, decimal>> LoadPriceDropsAsync(
+        IEnumerable<(Guid Id, decimal Price, Currency Currency)> items, CancellationToken ct)
+    {
+        var list = items.ToList();
+        var ids = list.Select(i => i.Id).ToList();
+        var since = DateTimeOffset.UtcNow.AddDays(-30);
+
+        var changes = await db.PriceChanges.AsNoTracking()
+            .IgnoreQueryFilters([AppDbContext.TenantFilter])
+            .Where(c => ids.Contains(c.PropertyId) && c.OldPrice != null && c.CreatedAt >= since)
+            .OrderByDescending(c => c.CreatedAt)
+            .Select(c => new { c.PropertyId, Old = c.OldPrice!.Value, c.NewPrice, c.Currency })
+            .ToListAsync(ct);
+
+        var drops = new Dictionary<Guid, decimal>();
+        foreach (var item in list)
+        {
+            var latest = changes.FirstOrDefault(c => c.PropertyId == item.Id);
+            if (latest is not null && latest.Currency == item.Currency && latest.NewPrice == item.Price && latest.Old > latest.NewPrice)
+                drops[item.Id] = latest.Old;
+        }
+        return drops;
+    }
+
+    private static decimal? LatestDrop(IReadOnlyList<PublicPriceChangeDto> history, decimal price, Currency currency)
+    {
+        var latest = history.FirstOrDefault();
+        return latest is { PreviousPrice: { } old } && latest.Currency == currency && latest.Price == price &&
+               old > latest.Price && latest.Date >= DateTimeOffset.UtcNow.AddDays(-30)
+            ? old : null;
+    }
+
     private static List<Guid>? ParseIds(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -262,5 +309,5 @@ public sealed class PublicPropertiesController(AppDbContext db, IImageStorage st
         Guid Id, Guid TenantId, string Title, OperationType Operation, PropertyType Type,
         decimal Price, Currency Currency, string City, string? Province,
         int Bedrooms, int Bathrooms, decimal AreaM2, decimal? CoveredAreaM2, int Rooms, int Garages,
-        string AgencyName);
+        string AgencyName, int? AgeYears);
 }
