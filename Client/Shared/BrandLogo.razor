@@ -1,0 +1,23 @@
+<span class="re-brand @(Vertical ? "re-brand-v" : null) @Class" style="--logo-size:@(Size)px" role="img" aria-label="Real Estate Propiedades">
+    <span class="re-logo-mark" aria-hidden="true"></span>
+    @if (ShowText)
+    {
+        <span class="re-brand-text">
+            <span class="re-brand-name">REAL ESTATE</span>
+            <span class="re-brand-tag">PROPIEDADES</span>
+        </span>
+    }
+</span>
+
+@code {
+    /// <summary>Alto del ícono en píxeles.</summary>
+    [Parameter] public int Size { get; set; } = 32;
+
+    /// <summary>Muestra "REAL ESTATE / PROPIEDADES" junto al ícono.</summary>
+    [Parameter] public bool ShowText { get; set; } = true;
+
+    /// <summary>Texto debajo del ícono y centrado (pantalla de ingreso).</summary>
+    [Parameter] public bool Vertical { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+}

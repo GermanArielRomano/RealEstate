@@ -64,7 +64,7 @@ public sealed class SharePreviewController(
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>{E(title)}</title>
             <meta property="og:type" content="website">
-            <meta property="og:site_name" content="Inmobiliarias">
+            <meta property="og:site_name" content="Real Estate Propiedades">
             <meta property="og:title" content="{E(title)}">
             <meta property="og:description" content="{E(description)}">
             <meta property="og:url" content="{E(shareUrl)}">

@@ -154,6 +154,14 @@ public static class Catalog
 
     public static readonly (string Value, string Label)[] Plans = [("Free", "Free"), ("Pro", "Pro"), ("Enterprise", "Enterprise")];
 
+    /// <summary>Las 23 provincias y la Ciudad Autónoma de Buenos Aires (debe coincidir con Api/Domain/Provinces.cs).</summary>
+    public static readonly string[] Provinces =
+    [
+        "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Ciudad Autónoma de Buenos Aires", "Córdoba", "Corrientes",
+        "Entre Ríos", "Formosa", "Jujuy", "La Pampa", "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro",
+        "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", "Santiago del Estero", "Tierra del Fuego", "Tucumán"
+    ];
+
     public static string Label((string Value, string Label)[] list, string? value) =>
         list.FirstOrDefault(x => x.Value == value).Label ?? value ?? "";
 

@@ -381,6 +381,9 @@ public sealed class PropertiesController(
     /// </summary>
     private async Task ValidateReferencesAsync(SavePropertyRequest r, Guid tenantId, CancellationToken ct)
     {
+        if (!string.IsNullOrWhiteSpace(r.Province) && !Provinces.IsValid(r.Province))
+            ModelState.AddModelError("province", "Selecciona una provincia de la lista.");
+
         if (r.OwnerId is { } ownerId &&
             !await db.Contacts.AnyAsync(c => c.Id == ownerId && c.TenantId == tenantId, ct))
             ModelState.AddModelError("ownerId", "El propietario no existe.");

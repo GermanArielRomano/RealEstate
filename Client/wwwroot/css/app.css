@@ -42,3 +42,22 @@ a { color: inherit; }
 
 /* Campo trampa para robots (fuera de pantalla; las personas no lo ven ni lo tocan) */
 .re-hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+/* ---------- Marca ---------- */
+.re-brand { display: inline-flex; align-items: center; gap: 10px; line-height: 1; color: inherit; }
+.re-brand-v { flex-direction: column; gap: 14px; }
+.re-logo-mark {
+    flex: none; display: inline-block;
+    height: var(--logo-size, 32px); aspect-ratio: 0.7159;
+    /* El ícono toma el color de acento del tema (azul claro en modo oscuro, azul intenso en modo claro).
+       Para volver al dorado original: :root { --re-logo-color: #edbf6d; } */
+    background-color: var(--re-logo-color, var(--mud-palette-primary, #7ba4ff));
+    -webkit-mask: url(../logo-mark.svg) center / contain no-repeat;
+    mask: url(../logo-mark.svg) center / contain no-repeat;
+}
+.re-brand-text { display: flex; flex-direction: column; gap: 5px; }
+.re-brand-v .re-brand-text { align-items: center; }
+.re-brand-name { font: 700 14px/1 Montserrat, Inter, system-ui, sans-serif; letter-spacing: .14em; white-space: nowrap; }
+.re-brand-tag { font: 500 8px/1 Montserrat, Inter, system-ui, sans-serif; letter-spacing: .5em; margin-right: -.5em; opacity: .7; white-space: nowrap; }
+.re-brand-v .re-brand-name { font-size: 20px; }
+.re-brand-v .re-brand-tag { font-size: 10px; }

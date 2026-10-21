@@ -129,7 +129,10 @@
                                     <MudTextField @bind-Value="form.City" For="() => form.City" Label="Ciudad" Variant="Variant.Outlined" />
                                 </MudItem>
                                 <MudItem xs="12" sm="6">
-                                    <MudTextField @bind-Value="form.Province" For="() => form.Province" Label="Provincia" Variant="Variant.Outlined" />
+                                    <MudSelect T="string" @bind-Value="form.Province" For="() => form.Province" Label="Provincia"
+                                               Variant="Variant.Outlined" Clearable="true" MaxHeight="320">
+                                        @foreach (var prov in Catalog.Provinces) { <MudSelectItem T="string" Value="@prov">@prov</MudSelectItem> }
+                                    </MudSelect>
                                 </MudItem>
                                 <MudItem xs="12">
                                     <LocationPicker @bind-Latitude="form.Latitude" @bind-Longitude="form.Longitude"

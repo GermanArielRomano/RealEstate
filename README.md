@@ -1,7 +1,7 @@
 # Inmobiliarias multi-tenant — demo a costo $0
 
 ```
-Mobile/   App .NET MAUI (agentes / clientes)            -> emulador o teléfono propio
+Client/   Blazor WASM para Clientes finales/Público     -> GitHub Pages
 Panel/    Blazor WebAssembly (SuperAdmin + socios)      -> GitHub Pages
 Api/      ASP.NET Core 10 + EF Core + PostgreSQL        -> Render (Docker, plan Free)
                                                         -> BD y fotos en Supabase (plan Free)
